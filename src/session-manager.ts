@@ -25,12 +25,27 @@ export type { ModelRoute, ModelEntry } from './model-resolver.js';
 /** AgentSetup hook 类型 */
 export type AgentSetup = (agentCtx: Context) => Promise<void> | void;
 
+/** dsh SessionEvent 简化类型（用于统计 token 用量 / 导出） */
+export interface SessionEventLike {
+  type: string;
+  seq?: number;
+  usage?: { input?: number; output?: number; cacheRead?: number; cacheWrite?: number };
+  message?: {
+    content?: Array<{ type: string; text?: string }>;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
+
 /** dsh Agent 简化接口 */
 export interface DshAgent {
   readonly id: string;
   readonly ctx: Context;
-  /** 底层 session（fork 时作为 source） */
-  readonly session: { readonly id: string };
+  /** 底层 session（fork 时作为 source，events 用于统计/导出） */
+  readonly session: {
+    readonly id: string;
+    readonly events?: readonly SessionEventLike[];
+  };
   cancel(cause: { kind: string }): void;
   followup(message: unknown): void;
   whenIdle(): Promise<void>;
@@ -90,6 +105,25 @@ export interface SessionRecord {
   senderId: string;
   lastActivity: number;
   agentPreset?: string;
+}
+
+/** 会话状态信息（/status 用） */
+export interface SessionStatus {
+  active: boolean;
+  sessionId?: string;
+  provider?: string;
+  model?: string;
+  preset?: string;
+  lastActivity?: number;
+  messageCount?: number;
+}
+
+/** token 用量统计（/cost 用） */
+export interface TokenUsageStats {
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
 }
 
 export class SessionManager {
@@ -234,6 +268,93 @@ export class SessionManager {
    */
   listProviders(): string[] {
     return this.modelResolver.listProviders();
+  }
+
+  // ── 会话状态 / 统计（/status /cost /export 用） ──
+
+  /**
+   * 获取指定会话的当前记录（公开访问）
+   */
+  getSessionRecord(scope: ChatScope, peerId: string): SessionRecord | undefined {
+    return this.sessions.get(this.sessionKey(scope, peerId));
+  }
+
+  /**
+   * 获取会话状态信息（/status 用）
+   */
+  getStatus(scope: ChatScope, peerId: string): SessionStatus {
+    const record = this.getSessionRecord(scope, peerId);
+    const route = this.getEffectiveModel(scope, peerId);
+
+    return {
+      active: !!record,
+      sessionId: record?.sessionId,
+      provider: route?.provider,
+      model: route?.model,
+      preset: record?.agentPreset,
+      lastActivity: record?.lastActivity,
+      messageCount: this.countMessages(record),
+    };
+  }
+
+  /**
+   * 统计会话 token 用量（/cost 用）
+   */
+  getTokenUsage(scope: ChatScope, peerId: string): TokenUsageStats {
+    const record = this.getSessionRecord(scope, peerId);
+    const stats: TokenUsageStats = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
+
+    const events = record?.agent.session.events;
+    if (!events) return stats;
+
+    for (const event of events) {
+      if (event.type !== 'assistant/message' || !event.usage) continue;
+      stats.input += event.usage.input ?? 0;
+      stats.output += event.usage.output ?? 0;
+      stats.cacheRead += event.usage.cacheRead ?? 0;
+      stats.cacheWrite += event.usage.cacheWrite ?? 0;
+    }
+
+    return stats;
+  }
+
+  /**
+   * 导出会话为 Markdown（/export 用）
+   */
+  exportMarkdown(scope: ChatScope, peerId: string): string {
+    const record = this.getSessionRecord(scope, peerId);
+    if (!record) return '';
+
+    const events = record.agent.session.events;
+    if (!events || events.length === 0) return '';
+
+    const lines: string[] = [`# QQ 会话导出\n`, `> session: ${record.sessionId}\n`];
+
+    for (const event of events) {
+      if (event.type === 'user/message') {
+        const text = extractMessageText(event.message);
+        if (text) lines.push(`## 用户\n\n${text}\n`);
+      } else if (event.type === 'assistant/message') {
+        const text = extractMessageText(event.message);
+        if (text) lines.push(`## 助手\n\n${text}\n`);
+      }
+    }
+
+    return lines.join('\n');
+  }
+
+  /** 统计会话消息数（user + assistant） */
+  private countMessages(record: SessionRecord | undefined): number {
+    const events = record?.agent.session.events;
+    if (!events) return 0;
+
+    let count = 0;
+    for (const event of events) {
+      if (event.type === 'user/message' || event.type === 'assistant/message') {
+        count += 1;
+      }
+    }
+    return count;
   }
 
   // ── Session 生命周期管理 ──
@@ -434,4 +555,20 @@ export class SessionManager {
   get size(): number {
     return this.sessions.size;
   }
+}
+
+/** 从消息对象中提取纯文本（用于导出/统计） */
+function extractMessageText(
+  message: SessionEventLike['message'],
+): string {
+  const blocks = message?.content;
+  if (!blocks || !Array.isArray(blocks)) return '';
+
+  const parts: string[] = [];
+  for (const block of blocks) {
+    if (block.type === 'text' && block.text) {
+      parts.push(block.text);
+    }
+  }
+  return parts.join('\n').trim();
 }

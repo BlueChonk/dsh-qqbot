@@ -5,8 +5,6 @@
  * 复用 @tencent-connect/qqbot-nodejs SDK 全套中间件链。
  */
 import type { Context } from '@deepseek-ai/cordis';
-import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
 import {
   QQBot,
   errorHandler,
@@ -23,24 +21,16 @@ import {
   envelopeFormatter,
   MemoryHistoryStore,
 } from '@tencent-connect/qqbot-nodejs';
-import type { MiddlewareContext, SlashCommandHandlerContext } from '@tencent-connect/qqbot-nodejs';
+import type { MiddlewareContext } from '@tencent-connect/qqbot-nodejs';
 
 import { ConfigSchema, type ImQQBotConfig } from './config.js';
 import { SessionManager, type DshAgentRegistry } from './session-manager.js';
 import { handleInbound } from './inbound.js';
 import { createOutboundHandler } from './outbound.js';
+import { buildCommandList } from './commands/index.js';
+import { getProfileDir, resolveEnv } from './utils.js';
+import { runQrSetup, persistCredentialsToProfile } from './setup.js';
 import type { Logger } from './types.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const PLUGIN_ROOT = resolve(__dirname, '..');
-
-/** 从插件安装路径推导 profile 目录（node_modules 的父目录） */
-function getProfileDir(): string | null {
-  const nmIdx = PLUGIN_ROOT.lastIndexOf('/node_modules/');
-  if (nmIdx > 0) return PLUGIN_ROOT.slice(0, nmIdx);
-  return null;
-}
 
 // ── Cordis 插件元数据 ──
 export const name = 'im-qqbot';
@@ -48,8 +38,6 @@ export const inject = ['agents'];
 export const Config = ConfigSchema;
 
 export type { ImQQBotConfig } from './config.js';
-
-import { runQrSetup, persistCredentialsToProfile } from './setup.js';
 
 // ── 插件主体 ──
 export async function apply(ctx: Context, config: ImQQBotConfig): Promise<void> {
@@ -157,7 +145,7 @@ async function bootstrap(
   // 8. 斜杠命令（在 concurrencyGuard 之前，命令匹配后不排队直接响应）
   const slash = slashCommand({
     autoHelp: true,
-    commands: buildCommands(manager, config),
+    commands: buildCommandList({ manager, config }),
   });
   bot.use(slash.middleware);
 
@@ -167,7 +155,7 @@ async function bootstrap(
     maxQueue: config.maxQueue,
     maxProcessingMs: config.processingTimeoutMs,
     urgentPredicate: (mCtx: MiddlewareContext) => {
-      return (mCtx.message.content ?? '').trim() === '/stop';
+      return (mCtx.message.content ?? '').trim() === '/bot-stop';
     },
   }));
 
@@ -227,125 +215,4 @@ async function bootstrap(
         bot.stop();
       };
     }, 'im-qqbot.lifecycle');
-}
-
-// ── 斜杠命令定义 ──
-
-function buildCommands(manager: SessionManager, _config: ImQQBotConfig) {
-  return [
-    {
-      name: ['reset', 'clear'],
-      description: '重置当前会话（清除上下文）',
-      handler: (cmdCtx: SlashCommandHandlerContext) => {
-        const msg = cmdCtx.message;
-        const scope = msg.kind === 'group' ? 'group' : 'c2c';
-        const peerId = scope === 'group'
-          ? ((msg as unknown as Record<string, unknown>).groupOpenid as string ?? msg.senderId)
-          : msg.senderId;
-        void manager.remove(scope as 'c2c' | 'group', peerId);
-        return '会话已重置 ✓';
-      },
-    },
-    {
-      name: 'model',
-      description: '查看或切换模型（用法: /model [provider/model]）',
-      handler: async (cmdCtx: SlashCommandHandlerContext) => {
-        const msg = cmdCtx.message;
-        const scope = msg.kind === 'group' ? 'group' : 'c2c';
-        const peerId = scope === 'group'
-          ? ((msg as unknown as Record<string, unknown>).groupOpenid as string ?? msg.senderId)
-          : msg.senderId;
-        const args = (cmdCtx.command?.raw ?? '').trim();
-
-        // 无参数：显示当前模型 + 可用模型列表（可点击）
-        if (!args) {
-          const current = manager.getEffectiveModel(scope as 'c2c' | 'group', peerId);
-          const models = manager.listAvailableModels();
-
-          // 当前模型展示：优先用别名（name），找不到别名时回退到 provider/model id
-          let currentDisplay = '宿主默认配置';
-          if (current) {
-            const matched = models.find((m) => m.provider === current.provider && m.id === current.model);
-            currentDisplay = matched?.name ?? `${current.provider}/${current.model}`;
-          }
-
-          const lines: string[] = [
-            '### 🤖 模型配置',
-            '',
-            `**当前模型:** ${currentDisplay}`,
-          ];
-
-          if (models.length > 0) {
-            lines.push('', '**可用模型（点击切换）:**');
-            for (const m of models) {
-              const modelPath = `${m.provider}/${m.id}`;
-              const displayName = m.name ? `${m.name}` : modelPath;
-              lines.push(`<qqbot-cmd-input text="/model ${modelPath}" show="/model ${displayName}"/>`);
-            }
-          }
-
-          lines.push(
-            '',
-            '手动指定: `/model provider/model`',
-          );
-
-          const bot = (cmdCtx as unknown as Record<string, unknown>).bot as { sendMarkdown(target: unknown, content: string): Promise<unknown> };
-          const replyTarget = (cmdCtx as unknown as Record<string, unknown>).replyTarget;
-          await bot.sendMarkdown(replyTarget, lines.join('\n'));
-          return { kind: 'noop' as const };
-        }
-
-        // 解析 provider/model 格式
-        let provider: string;
-        let model: string;
-
-        if (args.includes('/')) {
-          const parts = args.split('/');
-          provider = parts[0] ?? '';
-          model = parts.slice(1).join('/');
-        } else {
-          // 仅指定 model 名，provider 从当前路由继承
-          const current = manager.getEffectiveModel(scope as 'c2c' | 'group', peerId);
-          provider = current?.provider ?? 'deepseek-official';
-          model = args;
-        }
-
-        if (!provider || !model) {
-          return '用法: /model provider/model\n示例: /model deepseek-official/deepseek-chat';
-        }
-
-        await manager.setModelOverride(scope as 'c2c' | 'group', peerId, { provider, model });
-        return `✅ 模型已切换: ${provider}/${model}\n立即生效，对话上下文保留。`;
-      },
-    },
-    {
-      name: 'ping',
-      description: '连通性测试',
-      handler: () => 'pong 🏓',
-    },
-    {
-      name: 'version',
-      description: '查看版本信息',
-      handler: () => {
-        const current = manager.getEffectiveModel('c2c', '');
-        const modelInfo = current ? `${current.provider}/${current.model}` : '宿主默认';
-        return `dsh-qqbot v0.1.0 | model: ${modelInfo}`;
-      },
-    },
-    {
-      name: 'stop',
-      description: '中止当前生成',
-      hidden: true,
-      handler: () => ({ kind: 'noop' as const }),
-    },
-  ];
-}
-
-// ── 工具函数 ──
-
-function resolveEnv(configValue: string, envKey: string): string {
-  if (configValue && configValue !== '__FROM_ENV__' && !configValue.startsWith('process.env')) {
-    return configValue;
-  }
-  return process.env[envKey] ?? '';
 }
