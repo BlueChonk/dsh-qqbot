@@ -109,14 +109,14 @@ export async function handleInbound(
 
   if (!agentBody) return;
 
-  console.log(`[im-qqbot] Processing: scope=${scope} peerId=${peerId} body="${agentBody.slice(0, 120000)}"`);
+  logger.info(`Processing: scope=${scope} peerId=${peerId} body="${agentBody.slice(0, 200)}"`);
 
   // ── 获取或创建会话 ──
   let record;
   try {
     record = await manager.getOrCreate(scope, peerId, msg.senderId, replyTarget);
   } catch (err) {
-    console.error(`[im-qqbot] ERROR creating session: ${err instanceof Error ? err.message : String(err)}`);
+    logger.error(`ERROR creating session: ${err instanceof Error ? err.message : String(err)}`);
     return;
   }
 
@@ -129,7 +129,7 @@ export async function handleInbound(
   });
 
   record.agent.followup(message);
-  console.log(`[im-qqbot] → followup sent: key=${scope}:${peerId}`);
+  logger.info(`→ followup sent: key=${scope}:${peerId}`);
 }
 
 // ══════════════════════════════════════════════════════════════

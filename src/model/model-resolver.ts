@@ -14,6 +14,7 @@
  */
 import type { Context } from '@deepseek-ai/cordis';
 import type { ImQQBotConfig } from '../config.js';
+import type { Logger } from '../types.js';
 import type { ModelRoute, ModelEntry } from './types.js';
 import { PrefsStore } from './prefs-store.js';
 import { SettingsReader } from './settings-reader.js';
@@ -25,8 +26,11 @@ export class ModelResolver {
   constructor(
     private readonly ctx: Context,
     private readonly config: ImQQBotConfig,
+    private readonly logger?: Logger,
   ) {
-    this.prefs = new PrefsStore(config.debug);
+    this.prefs = new PrefsStore(
+      config.debug ? (msg) => this.logger?.debug(msg) : undefined,
+    );
     this.settings = new SettingsReader();
   }
 
@@ -162,7 +166,7 @@ export class ModelResolver {
       }
     } catch (err) {
       if (this.config.debug) {
-        console.log(`[im-qqbot] ModelResolver: host service failed: ${err instanceof Error ? err.message : String(err)}`);
+        this.logger?.debug(`ModelResolver: host service failed: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
     return undefined;

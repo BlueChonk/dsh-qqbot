@@ -80,10 +80,12 @@ export async function runQrSetup(source = 'dsh-qqbot'): Promise<SetupCredentials
 export function persistCredentialsToProfile(
   credentials: SetupCredentials,
   profileDir?: string,
+  logger?: { info(msg: string, ...args: unknown[]): void; warn(msg: string, ...args: unknown[]): void },
 ): boolean {
+  const log = logger ?? console;
   const dir = profileDir;
   if (!dir) {
-    printManualInstructions(credentials);
+    printManualInstructions(credentials, log);
     return false;
   }
 
@@ -93,7 +95,7 @@ export function persistCredentialsToProfile(
     // 1. 解析现有条目（容错处理）
     let entries: PatchEntry[] = [];
     if (existsSync(patchPath)) {
-      entries = parsePatchEntries(readFileSync(patchPath, 'utf8'));
+      entries = parsePatchEntries(readFileSync(patchPath, 'utf8'), log);
     }
 
     // 2. 查找已有 im-qqbot 条目
@@ -120,12 +122,12 @@ export function persistCredentialsToProfile(
     // 3. dump 写回（保证合法 YAML）
     const output = `# QQ Bot 凭据（扫码绑定自动生成）\n${yaml.dump(entries)}`;
     writeFileSync(patchPath, output, 'utf8');
-    console.log(`[im-qqbot] ✔ 凭据已写入: ${patchPath}`);
-    console.log(`[im-qqbot]   下次启动将自动使用保存的凭据\n`);
+    log.info(`✔ 凭据已写入: ${patchPath}`);
+    log.info(`  下次启动将自动使用保存的凭据`);
     return true;
   } catch (err) {
-    console.warn(`[im-qqbot] 写入配置失败: ${err instanceof Error ? err.message : String(err)}`);
-    printManualInstructions(credentials);
+    log.warn(`写入配置失败: ${err instanceof Error ? err.message : String(err)}`);
+    printManualInstructions(credentials, log);
     return false;
   }
 }
@@ -138,7 +140,10 @@ export function persistCredentialsToProfile(
  * - 条目列表 → 过滤出含 id 的对象
  * - 解析失败（如 `[]` 与条目混合的多文档）→ 返回空数组（重建）
  */
-function parsePatchEntries(content: string): PatchEntry[] {
+function parsePatchEntries(
+  content: string,
+  log: { warn(msg: string, ...args: unknown[]): void },
+): PatchEntry[] {
   if (!content.trim()) return [];
 
   try {
@@ -151,15 +156,18 @@ function parsePatchEntries(content: string): PatchEntry[] {
     }
     return [];
   } catch (err) {
-    console.warn(
-      `[im-qqbot] cordis.patch.yml 解析失败，将重建: ${err instanceof Error ? err.message : String(err)}`,
+    log.warn(
+      `cordis.patch.yml 解析失败，将重建: ${err instanceof Error ? err.message : String(err)}`,
     );
     return [];
   }
 }
 
-function printManualInstructions(credentials: SetupCredentials): void {
-  console.warn('[im-qqbot] 无法自动保存凭据，请手动设置环境变量:');
-  console.warn(`  export QQBOT_APPID="${credentials.appId}"`);
-  console.warn(`  export QQBOT_SECRET="${credentials.appSecret}"`);
+function printManualInstructions(
+  credentials: SetupCredentials,
+  log: { warn(msg: string, ...args: unknown[]): void },
+): void {
+  log.warn('无法自动保存凭据，请手动设置环境变量:');
+  log.warn(`  export QQBOT_APPID="${credentials.appId}"`);
+  log.warn(`  export QQBOT_SECRET="${credentials.appSecret}"`);
 }

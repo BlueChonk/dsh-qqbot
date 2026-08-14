@@ -9,6 +9,9 @@ import { resolve, dirname } from 'node:path';
 import { homedir } from 'node:os';
 import type { ModelRoute } from './types.js';
 
+/** 日志回调（可选） */
+type DebugFn = (msg: string) => void;
+
 /** 隔离偏好文件结构 */
 interface PrefsFile {
   overrides: Record<string, ModelRoute>;
@@ -23,11 +26,11 @@ export class PrefsStore {
   private sessionIds = new Map<string, string>();
   /** 隔离偏好文件路径 */
   private readonly prefsPath: string;
+  private readonly debugLog?: DebugFn;
 
-  constructor(
-    private readonly debug: boolean = false,
-  ) {
+  constructor(debugLog?: DebugFn) {
     this.prefsPath = resolve(homedir(), '.dsh-qqbot', 'model-prefs.json');
+    this.debugLog = debugLog;
     this.load();
   }
 
@@ -91,9 +94,7 @@ export class PrefsStore {
         }
       }
     } catch (err) {
-      if (this.debug) {
-        console.log(`[im-qqbot] loadPrefs failed: ${err instanceof Error ? err.message : String(err)}`);
-      }
+      this.debugLog?.(`loadPrefs failed: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
@@ -106,9 +107,7 @@ export class PrefsStore {
       };
       writeFileSync(this.prefsPath, JSON.stringify(data, null, 2), 'utf8');
     } catch (err) {
-      if (this.debug) {
-        console.log(`[im-qqbot] writePrefs failed: ${err instanceof Error ? err.message : String(err)}`);
-      }
+      this.debugLog?.(`writePrefs failed: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 }

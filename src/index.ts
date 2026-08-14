@@ -50,16 +50,16 @@ export async function apply(ctx: Context, config: ImQQBotConfig): Promise<void> 
 
   // ── 凭据缺失时唤起扫码绑定 ──
   if (!appId || !appSecret) {
-    console.log('[im-qqbot] 凭据未配置，尝试扫码绑定...');
+    logger.info('凭据未配置，尝试扫码绑定...');
     const credentials = await runQrSetup();
 
     if (!credentials) {
-      console.error('[im-qqbot] ERROR: 无法获取 QQ Bot 凭据，插件未启动');
+      logger.error('无法获取 QQ Bot 凭据，插件未启动');
       return;
     }
 
     // 持久化到 profile 配置
-    persistCredentialsToProfile(credentials, getProfileDir() ?? undefined);
+    persistCredentialsToProfile(credentials, getProfileDir() ?? undefined, logger);
 
     // 写入环境变量供热更新后的下次 apply 读取
     process.env.QQBOT_APPID = credentials.appId;
@@ -67,7 +67,7 @@ export async function apply(ctx: Context, config: ImQQBotConfig): Promise<void> 
 
     // 写入 cordis.patch.yml 会触发 dsh 热更新，自动重新加载本插件
     // 此处直接返回，避免与热更新产生竞态
-    console.log('[im-qqbot] 配置已保存，等待热更新重新加载...');
+    logger.info('配置已保存，等待热更新重新加载...');
     return;
   }
 
@@ -93,7 +93,7 @@ async function bootstrap(
     userAgent,
     logger,
   } as ConstructorParameters<typeof QQBot>[0]);
-  console.log(`[im-qqbot] QQBot SDK initialized (UA: ${userAgent})`);
+  logger.info(`QQBot SDK initialized (UA: ${userAgent})`);
 
   // ══════════════════════════════════════════════════════════════
   // SDK 中间件链（洋葱模型，按执行顺序编排）
@@ -117,7 +117,7 @@ async function bootstrap(
     },
     onBlock: (_mCtx, reason) => {
       if (config.debug) {
-        console.log(`[im-qqbot] Access blocked: ${reason}`);
+        logger.debug(`Access blocked: ${reason}`);
       }
     },
   }));
@@ -183,9 +183,8 @@ async function bootstrap(
   bot.on('message', async (mCtx: MiddlewareContext) => {
     const msg = mCtx.message;
     if (config.debug) {
-      console.log('[im-qqbot] ← message (post-middleware):', JSON.stringify(msg, null, 2).slice(0, 500));
+      logger.debug(`← message (post-middleware): ${JSON.stringify(msg, null, 2).slice(0, 500)}`);
     }
-    // 将中间件 state 中的 envelope/quote/history 传递给 inbound handler
     await handleInbound(msg, manager, config, logger, mCtx.state);
   });
 
@@ -195,7 +194,7 @@ async function bootstrap(
     .on('session/event', outboundHandler as (...args: unknown[]) => void);
 
   bot.on('error', (err: unknown) => {
-    logger.error(`im-qqbot: bot error: ${err instanceof Error ? err.message : String(err)}`);
+    logger.error(`bot error: ${err instanceof Error ? err.message : String(err)}`);
   });
 
   bot.on('ready', () => {
@@ -205,13 +204,13 @@ async function bootstrap(
   // ── 生命周期 ──
   (ctx as unknown as { effect(fn: () => (() => Promise<void>) | void, name?: string): void })
     .effect(() => {
-      console.log(`[im-qqbot] Starting bot (appId=${config.appId})`);
+      logger.info(`Starting bot (appId=${config.appId})`);
       bot.start().catch((err: unknown) => {
-        console.error(`[im-qqbot] Bot start failed: ${err instanceof Error ? err.message : String(err)}`);
+        logger.error(`Bot start failed: ${err instanceof Error ? err.message : String(err)}`);
       });
 
       return async () => {
-        console.log('[im-qqbot] Shutting down');
+        logger.info('Shutting down');
         await manager.disposeAll();
         bot.stop();
       };

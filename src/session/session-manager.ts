@@ -44,13 +44,13 @@ export class SessionManager {
     private readonly config: ImQQBotConfig,
     private readonly logger: Logger,
   ) {
-    this.modelResolver = new ModelResolver(ctx, config);
+    this.modelResolver = new ModelResolver(ctx, config, logger);
 
     this.evictor = new IdleEvictor(
       this.sessions,
       config.sessionIdleTimeout,
       (key, record) => {
-        console.log(`[im-qqbot] evicting idle session: key=${key}`);
+        this.logger.info(`evicting idle session: key=${key}`);
         this.sessions.delete(key);
         record.agent.cancel({ kind: 'user' });
         void record.handle.dispose().catch(() => {});
@@ -85,13 +85,13 @@ export class SessionManager {
 
     const record = this.sessions.get(key);
     if (!record) {
-      console.log(`[im-qqbot] model pref saved (no active session): key=${key} → ${route.provider}/${route.model}`);
+      this.logger.info(`model pref saved (no active session): key=${key} → ${route.provider}/${route.model}`);
       return;
     }
 
     const sessionsService = this.getSessionsService();
     if (!sessionsService) {
-      console.log(`[im-qqbot] fork unavailable, fallback to dispose: key=${key}`);
+      this.logger.warn(`fork unavailable, fallback to dispose: key=${key}`);
       this.sessions.delete(key);
       record.agent.cancel({ kind: 'user' });
       await record.handle.dispose().catch(() => {});
@@ -102,7 +102,7 @@ export class SessionManager {
     try {
       seed = sessionsService.fork(record.agent.session).events;
     } catch (err) {
-      console.log(`[im-qqbot] fork failed, fallback to dispose: key=${key} err=${err instanceof Error ? err.message : String(err)}`);
+      this.logger.warn(`fork failed, fallback to dispose: key=${key} err=${err instanceof Error ? err.message : String(err)}`);
       this.sessions.delete(key);
       record.agent.cancel({ kind: 'user' });
       await record.handle.dispose().catch(() => {});
@@ -135,7 +135,7 @@ export class SessionManager {
     record.lastActivity = Date.now();
 
     void oldHandle.dispose().catch(() => {});
-    console.log(`[im-qqbot] model switched via fork: key=${key} → ${route.provider}/${route.model} sessionId=${childId}`);
+    this.logger.info(`model switched via fork: key=${key} → ${route.provider}/${route.model} sessionId=${childId}`);
   }
 
   clearModelOverride(scope: ChatScope, peerId: string): void {
@@ -286,7 +286,7 @@ export class SessionManager {
 
     const route = this.modelResolver.getEffectiveRoute(key);
     const sessionId = SessionId(this.currentSessionId(key));
-    console.log(`[im-qqbot] getOrCreate: key=${key} route=${route ? `${route.provider}/${route.model}` : 'host-default'} sessionId=${sessionId}`);
+    this.logger.info(`getOrCreate: key=${key} route=${route ? `${route.provider}/${route.model}` : 'host-default'} sessionId=${sessionId}`);
 
     let agent: DshAgent;
     let handle: DshAgentHandle | undefined;
@@ -295,7 +295,7 @@ export class SessionManager {
     const live = this.agents.get(sessionId);
     if (live) {
       agent = live;
-      console.log(`[im-qqbot] reusing live agent: key=${key}`);
+      this.logger.info(`reusing live agent: key=${key}`);
     } else {
       try {
         const composed = await this.composePreset(this.config.preset);
@@ -308,7 +308,7 @@ export class SessionManager {
         });
         agent = resumed.agent;
         handle = resumed;
-        console.log(`[im-qqbot] resumed session: key=${key} preset=${agentPreset ?? 'none'} route=${resumeRoute ? `${resumeRoute.provider}/${resumeRoute.model}` : 'session-own'}`);
+        this.logger.info(`resumed session: key=${key} preset=${agentPreset ?? 'none'} route=${resumeRoute ? `${resumeRoute.provider}/${resumeRoute.model}` : 'session-own'}`);
       } catch {
         const composed = await this.composePreset(this.config.preset);
         agentPreset = composed.agentPreset;
@@ -323,7 +323,7 @@ export class SessionManager {
         });
         agent = created.agent;
         handle = created;
-        console.log(`[im-qqbot] created new session: key=${key} preset=${agentPreset ?? 'none'}`);
+        this.logger.info(`created new session: key=${key} preset=${agentPreset ?? 'none'}`);
       }
     }
 
@@ -366,7 +366,7 @@ export class SessionManager {
     this.modelResolver.clearSessionId(key);
     record.agent.cancel({ kind: 'user' });
     await record.handle.dispose().catch(() => {});
-    console.log(`[im-qqbot] session removed: key=${key}`);
+    this.logger.info(`session removed: key=${key}`);
   }
 
   async disposeAll(): Promise<void> {
@@ -377,7 +377,7 @@ export class SessionManager {
       record.agent.cancel({ kind: 'user' });
     }
     await Promise.allSettled(records.map((r) => r.handle.dispose()));
-    console.log(`[im-qqbot] all sessions disposed (count=${records.length})`);
+    this.logger.info(`all sessions disposed (count=${records.length})`);
   }
 
   get size(): number {
