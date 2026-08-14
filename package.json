@@ -16,7 +16,8 @@
     "dev": "tsc --watch",
     "prepublishOnly": "npm run build",
     "lint": "eslint src/",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "ci:prepare-test-pkg": "node scripts/prepare-test-pkg.js"
   },
   "keywords": [
     "deepseek-harness",

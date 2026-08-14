@@ -1,0 +1,2 @@
+include:
+  - https://git.woa.com/qq-ai/web/secret/blob/master/ci/tencent-connect/dsh-qqbot.yml
