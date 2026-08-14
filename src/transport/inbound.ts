@@ -10,9 +10,9 @@
  */
 import type { ContentBlock } from '@deepseek-ai/dsh-llm';
 import { createUserMessage } from '@deepseek-ai/dsh-llm';
-import type { SessionManager } from './session-manager.js';
-import type { ImQQBotConfig } from './config.js';
-import type { ChatScope, Logger, ReplyTarget } from './types.js';
+import type { SessionManager } from '../session/index.js';
+import type { ImQQBotConfig } from '../config.js';
+import type { ChatScope, Logger, ReplyTarget } from '../types.js';
 
 // ── 类型定义 ──
 
@@ -111,13 +111,6 @@ export async function handleInbound(
 
   console.log(`[im-qqbot] Processing: scope=${scope} peerId=${peerId} body="${agentBody.slice(0, 120000)}"`);
 
-  // ── 命令兜底（SDK slashCommand 已处理大部分） ──
-  const text = (msg.content ?? '').trim();
-  if (text.startsWith('/')) {
-    const handled = handleCommand(text, scope, peerId, manager);
-    if (handled) return;
-  }
-
   // ── 获取或创建会话 ──
   let record;
   try {
@@ -152,24 +145,18 @@ function assembleAgentBody(
   scope: ChatScope,
   logger: Logger,
 ): string | null {
-  // Layer 1: userContent — 用户文本 + 语音转录 + 附件描述
   const userContent = buildUserContent(msg, state, logger);
 
-  // 无任何可处理内容时跳过
   if (!userContent && (!msg.attachments || msg.attachments.length === 0)) return null;
 
-  // Layer 2: quotePart — 引用消息块
   const quotePart = buildQuotePart(state.quote);
 
-  // Layer 3: userMessage — 带发送者标签的用户消息
   const isGroup = scope === 'group';
   const wasMentioned = state.mention?.wasMentioned ?? false;
   const userMessage = buildUserMessage(userContent, quotePart, msg.senderId, isGroup, wasMentioned);
 
-  // Layer 4: dynamicCtx — 媒体元数据块
   const dynamicCtx = buildDynamicCtx(msg, state);
 
-  // Layer 5: agentBody — history + base 拼合
   const base = dynamicCtx ? `${dynamicCtx}${userMessage}` : userMessage;
   const agentBody = buildAgentBody(base, state.history, isGroup, wasMentioned);
 
@@ -182,13 +169,11 @@ function assembleAgentBody(
 function buildUserContent(msg: ProcessedMessage, state: MiddlewareState, logger: Logger): string {
   const parts: string[] = [];
 
-  // 清洗后的文本内容
   const text = (msg.content ?? '').trim();
   if (text) {
     parts.push(text);
   }
 
-  // 语音消息处理
   const voiceTexts = extractVoiceTexts(msg.attachments, state.processedAttachments, logger);
   if (voiceTexts.length > 0) {
     for (const vt of voiceTexts) {
@@ -197,7 +182,6 @@ function buildUserContent(msg: ProcessedMessage, state: MiddlewareState, logger:
     }
   }
 
-  // 其他附件描述
   const otherAttachments = describeAttachments(msg.attachments, state.processedAttachments);
   if (otherAttachments) {
     parts.push(otherAttachments);
@@ -228,11 +212,9 @@ function buildUserMessage(
   wasMentioned: boolean,
 ): string {
   if (!isGroup) {
-    // 私聊：无发送者标签
     return `${quotePart}${userContent}`;
   }
 
-  // 群聊：[Sender (openid)] content (@you)
   const mentionTag = wasMentioned ? ' (@you)' : '';
   const senderTag = `[${senderId.slice(0, 8)} (${senderId})]`;
   return `${quotePart}${senderTag} ${userContent}${mentionTag}`;
@@ -246,7 +228,6 @@ function buildDynamicCtx(msg: ProcessedMessage, state: MiddlewareState): string 
 
   if (!msg.attachments || msg.attachments.length === 0) return '';
 
-  // 图片 URL
   const images = msg.attachments.filter(a => a.content_type === 'image');
   if (images.length > 0) {
     const urls = images.map(a => a.url).filter(Boolean);
@@ -255,27 +236,23 @@ function buildDynamicCtx(msg: ProcessedMessage, state: MiddlewareState): string 
     }
   }
 
-  // 语音文件
   const voices = msg.attachments.filter(a => a.content_type === 'voice');
   if (voices.length > 0) {
     const urls = voices.map(a => a.url).filter(Boolean);
     if (urls.length > 0) {
       lines.push(`- Voice: ${urls.join(', ')}`);
     }
-    // ASR 原始文本
     const asrTexts = voices.map(a => a.asr_refer_text).filter(Boolean);
     if (asrTexts.length > 0) {
       lines.push(`- ASR: ${asrTexts.join(' | ')}`);
     }
   }
 
-  // 视频
   const videos = msg.attachments.filter(a => a.content_type === 'video');
   if (videos.length > 0) {
     lines.push(`- Videos: ${videos.map(a => a.filename).join(', ')}`);
   }
 
-  // 文件
   const files = msg.attachments.filter(a => a.content_type === 'file');
   if (files.length > 0) {
     lines.push(`- Files: ${files.map(a => `${a.filename} (${formatFileSize(a.size)})`).join(', ')}`);
@@ -283,7 +260,6 @@ function buildDynamicCtx(msg: ProcessedMessage, state: MiddlewareState): string 
 
   if (lines.length === 0) return '';
 
-  // 引用消息中的附件
   const quoteAttachments = state.quote?.attachments;
   if (quoteAttachments && quoteAttachments.length > 0) {
     lines.push('[Reference attachments]');
@@ -305,12 +281,10 @@ function buildAgentBody(
   isGroup: boolean,
   wasMentioned: boolean,
 ): string {
-  // 非群聊或未被@或无历史：直接返回 base
   if (!isGroup || !wasMentioned || !history || history.length === 0) {
     return base;
   }
 
-  // 群聊被@且有历史：前置 history
   const historyLines = history.map(h => {
     const name = h.senderName ?? h.senderId.slice(0, 8);
     return `[${name} (${h.senderId})] ${h.content}`;
@@ -336,10 +310,6 @@ interface VoiceText {
   source: 'stt' | 'asr' | 'fallback';
 }
 
-/**
- * 提取语音转录文本
- * 优先级：processedAttachments.voiceText > attachment.asr_refer_text
- */
 function extractVoiceTexts(
   attachments?: Attachment[],
   processed?: ProcessedAttachment[],
@@ -347,7 +317,6 @@ function extractVoiceTexts(
 ): VoiceText[] {
   const results: VoiceText[] = [];
 
-  // 优先使用中间件处理后的结果（含 STT）
   if (processed) {
     for (const pa of processed) {
       if (pa.type === 'voice' && pa.voiceText) {
@@ -360,7 +329,6 @@ function extractVoiceTexts(
     }
   }
 
-  // 回退到原始附件的 ASR 文本
   if (results.length === 0 && attachments) {
     for (const att of attachments) {
       if (att.content_type === 'voice' && att.asr_refer_text) {
@@ -375,9 +343,6 @@ function extractVoiceTexts(
   return results;
 }
 
-/**
- * 描述非语音附件
- */
 function describeAttachments(
   attachments?: Attachment[],
   _processed?: ProcessedAttachment[],
@@ -389,7 +354,6 @@ function describeAttachments(
   for (const att of attachments) {
     switch (att.content_type) {
       case 'voice':
-        // 语音已在 voiceTexts 中处理
         break;
       case 'image': {
         const dim = att.width && att.height ? ` ${att.width}×${att.height}` : '';
@@ -411,30 +375,8 @@ function describeAttachments(
   return parts.join('\n');
 }
 
-/** 格式化文件大小 */
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes}B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
-}
-
-// ── 命令兜底 ──
-
-function handleCommand(
-  text: string,
-  scope: ChatScope,
-  peerId: string,
-  manager: SessionManager,
-): boolean {
-  const cmd = text.split(/\s+/)[0]?.toLowerCase();
-  switch (cmd) {
-    case '/reset':
-    case '/clear': {
-      void manager.remove(scope, peerId);
-      console.log(`[im-qqbot] Session reset: key=${scope}:${peerId}`);
-      return true;
-    }
-    default:
-      return false;
-  }
 }

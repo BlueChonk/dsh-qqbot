@@ -6,7 +6,7 @@
  */
 import type { SlashCommand } from '@tencent-connect/qqbot-nodejs';
 import type { CommandDeps } from './types.js';
-import { sendMarkdownChunked } from '../utils.js';
+import { sendMarkdownChunked } from '../shared/index.js';
 
 /** /bot-help — 查看所有指令以及用途 */
 export function helpCommand({ config }: CommandDeps, allCommands: () => SlashCommand[]): SlashCommand {

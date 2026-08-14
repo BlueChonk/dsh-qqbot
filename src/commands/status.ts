@@ -3,7 +3,7 @@
  */
 import type { SlashCommand } from '@tencent-connect/qqbot-nodejs';
 import type { CommandDeps } from './types.js';
-import { getScopePeer, formatRelativeTime } from '../utils.js';
+import { getScopePeer, formatRelativeTime } from '../shared/index.js';
 
 /** /bot-status — 查看当前会话状态 */
 export function statusCommand({ manager }: CommandDeps): SlashCommand {

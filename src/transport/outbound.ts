@@ -1,15 +1,13 @@
 /**
  * 出站处理器 — dsh session/event → QQ 消息发送
  */
-import type { SessionManager, SessionRecord } from './session-manager.js';
-import type { ImQQBotConfig } from './config.js';
-import type { Logger, ReplyTarget } from './types.js';
+import type { SessionManager, SessionRecord } from '../session/index.js';
+import type { ImQQBotConfig } from '../config.js';
+import type { Logger } from '../types.js';
 import { chunkMarkdownText } from './chunker.js';
+import { OutboundBuffer, type QQBotSender } from './outbound-buffer.js';
 
-/** QQ Bot 发送接口 */
-export interface QQBotSender {
-  sendMarkdown(target: ReplyTarget, content: string): Promise<unknown>;
-}
+export type { QQBotSender } from './outbound-buffer.js';
 
 /** dsh SessionEvent 简化类型 */
 export interface SessionEvent {
@@ -20,73 +18,6 @@ export interface SessionEvent {
 /** dsh Session 简化类型 */
 export interface SessionLike {
   header: { id: string };
-}
-
-/**
- * 出站文本缓冲 — 收集流式 chunk 并 debounce 发送
- */
-class OutboundBuffer {
-  private buffer = '';
-  private timer: ReturnType<typeof setTimeout> | null = null;
-  private flushing = false;
-
-  constructor(
-    private readonly record: SessionRecord,
-    private readonly bot: QQBotSender,
-    private readonly limit: number,
-    private readonly logger: Logger,
-  ) {}
-
-  /** 追加文本增量 */
-  append(text: string): void {
-    this.buffer += text;
-  }
-
-  /** 获取当前累积文本 */
-  get text(): string {
-    return this.buffer;
-  }
-
-  /** 安排延迟发送（debounce） */
-  scheduleSend(delayMs: number): void {
-    if (this.timer) return;
-    this.timer = setTimeout(() => {
-      this.timer = null;
-      void this.flush();
-    }, delayMs);
-  }
-
-  /** 立即发送所有累积文本 */
-  async flush(): Promise<void> {
-    if (this.flushing || !this.buffer.trim()) return;
-    this.flushing = true;
-
-    if (this.timer) {
-      clearTimeout(this.timer);
-      this.timer = null;
-    }
-
-    try {
-      const chunks = chunkMarkdownText(this.buffer, this.limit);
-      for (const chunk of chunks) {
-        await this.bot.sendMarkdown(this.record.replyTarget, chunk);
-      }
-    } catch (err) {
-      this.logger.error(`im-qqbot: sendMarkdown failed: ${err instanceof Error ? err.message : String(err)}`);
-    } finally {
-      this.buffer = '';
-      this.flushing = false;
-    }
-  }
-
-  /** 取消未发送的定时器 */
-  cancel(): void {
-    if (this.timer) {
-      clearTimeout(this.timer);
-      this.timer = null;
-    }
-    this.buffer = '';
-  }
 }
 
 /**
@@ -106,7 +37,7 @@ export function createOutboundHandler(
   return (session: SessionLike, event: SessionEvent) => {
     const sessionId = session.header.id;
     const record = manager.findBySessionId(sessionId);
-    if (!record) return; // 非本插件管理的会话
+    if (!record) return;
 
     switch (event.type) {
       case 'assistant/chunk': {
@@ -147,8 +78,6 @@ function handleChunk(
   }
 
   buffer.append(chunk.text);
-  // 不实时发 chunk，等 assistant/message 完整输出后一起发
-  // 如需流式体验，可改为 scheduleSend(500) 定期推送
 }
 
 /** 处理完整 assistant 消息 */
@@ -161,7 +90,6 @@ function handleMessage(
   limit: number,
   logger: Logger,
 ): void {
-  // 如果已有 buffer 积累了 chunk，直接用 buffer（chunk 更完整）
   const buffer = buffers.get(sessionId);
   if (buffer && buffer.text.trim()) {
     void buffer.flush();
@@ -169,7 +97,6 @@ function handleMessage(
     return;
   }
 
-  // 否则从 message content 中提取文本
   const message = event.data as { message?: { content?: Array<{ type: string; text?: string }> } };
   const blocks = message?.message?.content;
   if (!blocks || !Array.isArray(blocks)) return;
@@ -206,7 +133,6 @@ function handleTurnEnd(
 ): void {
   const buffer = buffers.get(sessionId);
   if (buffer) {
-    // flush 任何残留
     if (buffer.text.trim()) {
       void buffer.flush();
     } else {

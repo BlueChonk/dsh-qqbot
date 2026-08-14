@@ -24,11 +24,10 @@ import {
 import type { MiddlewareContext } from '@tencent-connect/qqbot-nodejs';
 
 import { ConfigSchema, type ImQQBotConfig } from './config.js';
-import { SessionManager, type DshAgentRegistry } from './session-manager.js';
-import { handleInbound } from './inbound.js';
-import { createOutboundHandler } from './outbound.js';
+import { SessionManager, type DshAgentRegistry } from './session/index.js';
+import { handleInbound, createOutboundHandler } from './transport/index.js';
 import { buildCommandList } from './commands/index.js';
-import { getProfileDir, resolveEnv } from './utils.js';
+import { getProfileDir, resolveEnv, buildUserAgent } from './shared/index.js';
 import { runQrSetup, persistCredentialsToProfile } from './setup.js';
 import type { Logger } from './types.js';
 
@@ -86,13 +85,15 @@ async function bootstrap(
   const manager = new SessionManager(ctx, agents, config, logger);
 
   // ── 初始化 QQ Bot SDK ──
+  const userAgent = buildUserAgent();
   const bot = new QQBot({
     appId: config.appId,
     appSecret: config.appSecret,
     transport: 'websocket',
+    userAgent,
     logger,
   } as ConstructorParameters<typeof QQBot>[0]);
-  console.log('[im-qqbot] QQBot SDK initialized');
+  console.log(`[im-qqbot] QQBot SDK initialized (UA: ${userAgent})`);
 
   // ══════════════════════════════════════════════════════════════
   // SDK 中间件链（洋葱模型，按执行顺序编排）

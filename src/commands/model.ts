@@ -3,7 +3,7 @@
  */
 import type { SlashCommand } from '@tencent-connect/qqbot-nodejs';
 import type { CommandDeps } from './types.js';
-import { getScopePeer, sendMarkdownChunked } from '../utils.js';
+import { getScopePeer, sendMarkdownChunked } from '../shared/index.js';
 
 export function modelCommand({ manager, config }: CommandDeps): SlashCommand {
   return {

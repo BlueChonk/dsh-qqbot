@@ -3,7 +3,7 @@
  */
 import type { SlashCommand } from '@tencent-connect/qqbot-nodejs';
 import type { CommandDeps } from './types.js';
-import { getScopePeer } from '../utils.js';
+import { getScopePeer } from '../shared/index.js';
 
 /** /bot-reset /bot-clear — 重置当前会话 */
 export function resetCommand({ manager }: CommandDeps): SlashCommand {

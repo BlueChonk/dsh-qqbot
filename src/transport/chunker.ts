@@ -57,7 +57,6 @@ export function chunkMarkdownText(text: string, limit: number): string[] {
   };
 
   for (const line of lines) {
-    // 追踪代码块状态
     if (CODE_FENCE_OPEN.test(line)) {
       flushTable();
       inCodeBlock = !inCodeBlock;
@@ -65,24 +64,20 @@ export function chunkMarkdownText(text: string, limit: number): string[] {
       continue;
     }
 
-    // 代码块内部不切分
     if (inCodeBlock) {
       appendLine(line);
       continue;
     }
 
-    // GFM 表格行收集
     if (GFM_TABLE_LINE.test(line)) {
       tableBuffer.push(line);
       continue;
     }
 
-    // 非表格行，先 flush 积累的表格
     flushTable();
     appendLine(line);
   }
 
-  // 处理剩余
   flushTable();
   if (current) chunks.push(current);
 
