@@ -6,12 +6,20 @@
  */
 import { resolve } from 'node:path';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import yaml from 'js-yaml';
 import { qrConnect } from '@tencent-connect/qqbot-connector';
 
 /** 凭据结果 */
 export interface SetupCredentials {
   appId: string;
   appSecret: string;
+}
+
+/** cordis.patch.yml 中的 patch 条目 */
+interface PatchEntry {
+  id?: string;
+  config?: Record<string, unknown>;
+  [key: string]: unknown;
 }
 
 /**
@@ -65,8 +73,9 @@ export async function runQrSetup(source = 'dsh-qqbot'): Promise<SetupCredentials
 /**
  * 将凭据写入 dsh profile 的 cordis.patch.yml
  *
- * 在已有 `id: im-qqbot` 条目的 config 段中写入 appId/appSecret。
- * 写入后下次启动无需再次扫码。
+ * 用 js-yaml 解析现有文件后更新/追加 im-qqbot 条目，再 dump 写回，
+ * 保证输出始终是合法 YAML。兼容空数组 `[]`、条目列表，以及
+ * `[]` 与条目混合导致解析失败等异常情况（失败时重建）。
  */
 export function persistCredentialsToProfile(
   credentials: SetupCredentials,
@@ -81,42 +90,36 @@ export function persistCredentialsToProfile(
   const patchPath = resolve(dir, 'cordis.patch.yml');
 
   try {
-    let content: string;
-
+    // 1. 解析现有条目（容错处理）
+    let entries: PatchEntry[] = [];
     if (existsSync(patchPath)) {
-      content = readFileSync(patchPath, 'utf8');
-
-      if (content.trim() === '[]' || content.trim() === '') {
-        // 空文件，写入完整条目
-        content = buildPatchContent(credentials);
-      } else if (content.includes('id: im-qqbot')) {
-        // 已有 im-qqbot 条目
-        if (content.includes('appId:')) {
-          // 替换已有的 appId/appSecret
-          content = content.replace(
-            /appId:\s*.*/,
-            `appId: '${credentials.appId}'`,
-          );
-          content = content.replace(
-            /appSecret:\s*.*/,
-            `appSecret: '${credentials.appSecret}'`,
-          );
-        } else {
-          // config 段存在但没有 appId，在 config: 后插入
-          content = content.replace(
-            /(id: im-qqbot\s*\n\s*config:\s*\n)/,
-            `$1    appId: '${credentials.appId}'\n    appSecret: '${credentials.appSecret}'\n`,
-          );
-        }
-      } else {
-        // 没有 im-qqbot 条目，追加
-        content = content.trimEnd() + '\n' + buildPatchContent(credentials);
-      }
-    } else {
-      content = buildPatchContent(credentials);
+      entries = parsePatchEntries(readFileSync(patchPath, 'utf8'));
     }
 
-    writeFileSync(patchPath, content, 'utf8');
+    // 2. 查找已有 im-qqbot 条目
+    const existing = entries.find((e) => e.id === 'im-qqbot');
+
+    if (existing) {
+      // 更新已有条目的 config
+      existing.config = {
+        ...(existing.config ?? {}),
+        appId: credentials.appId,
+        appSecret: credentials.appSecret,
+      };
+    } else {
+      // 追加新条目
+      entries.push({
+        id: 'im-qqbot',
+        config: {
+          appId: credentials.appId,
+          appSecret: credentials.appSecret,
+        },
+      });
+    }
+
+    // 3. dump 写回（保证合法 YAML）
+    const output = `# QQ Bot 凭据（扫码绑定自动生成）\n${yaml.dump(entries)}`;
+    writeFileSync(patchPath, output, 'utf8');
     console.log(`[im-qqbot] ✔ 凭据已写入: ${patchPath}`);
     console.log(`[im-qqbot]   下次启动将自动使用保存的凭据\n`);
     return true;
@@ -127,17 +130,36 @@ export function persistCredentialsToProfile(
   }
 }
 
+/**
+ * 解析 cordis.patch.yml 为条目数组
+ *
+ * 容错处理：
+ * - 空内容 / 空数组 `[]` → 空数组
+ * - 条目列表 → 过滤出含 id 的对象
+ * - 解析失败（如 `[]` 与条目混合的多文档）→ 返回空数组（重建）
+ */
+function parsePatchEntries(content: string): PatchEntry[] {
+  if (!content.trim()) return [];
+
+  try {
+    const parsed = yaml.load(content);
+    if (Array.isArray(parsed)) {
+      return parsed.filter(
+        (e): e is PatchEntry =>
+          typeof e === 'object' && e !== null && typeof (e as Record<string, unknown>).id === 'string',
+      );
+    }
+    return [];
+  } catch (err) {
+    console.warn(
+      `[im-qqbot] cordis.patch.yml 解析失败，将重建: ${err instanceof Error ? err.message : String(err)}`,
+    );
+    return [];
+  }
+}
+
 function printManualInstructions(credentials: SetupCredentials): void {
   console.warn('[im-qqbot] 无法自动保存凭据，请手动设置环境变量:');
   console.warn(`  export QQBOT_APPID="${credentials.appId}"`);
   console.warn(`  export QQBOT_SECRET="${credentials.appSecret}"`);
-}
-
-function buildPatchContent(creds: SetupCredentials): string {
-  return `# QQ Bot 凭据（扫码绑定自动生成）
-- id: im-qqbot
-  config:
-    appId: '${creds.appId}'
-    appSecret: '${creds.appSecret}'
-`;
 }
