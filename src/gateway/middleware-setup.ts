@@ -18,13 +18,13 @@ import {
   quoteRef,
   historyBuffer,
   envelopeFormatter,
-  MemoryHistoryStore,
 } from '@tencent-connect/qqbot-nodejs';
 import type { ImQQBotConfig } from '../config.js';
 import type { SessionManager } from '../session/index.js';
 import type { Logger } from '../types.js';
 import { buildCommandList } from '../commands/index.js';
 import { attachmentProcessor } from '../middleware/attachment.js';
+import { getHistoryStore, historyGroupKey } from '../features/history-store.js';
 
 export function setupMiddlewares(
   bot: QQBot,
@@ -56,11 +56,16 @@ export function setupMiddlewares(
   }));
 
   // 4. 群历史缓冲 — 放在门控之前，确保所有消息（含未 @bot）都计入上下文
-  const historyStore = new MemoryHistoryStore();
+  //    store 走共享单例（getHistoryStore），groupKey 带 appId 前缀，供回复后清空
   bot.use(historyBuffer({
     limit: config.historyLimit,
-    store: historyStore,
+    store: getHistoryStore(),
     recordOnSkip: true,
+    groupKey: (ctx) => {
+      const gid = ctx.message.groupOpenid;
+      if (ctx.message.kind !== 'group' || !gid) return undefined;
+      return historyGroupKey(config.appId, gid);
+    },
   }));
 
   // 5. 群聊 @bot 门控

@@ -38,6 +38,9 @@ interface ToolCallRecord {
   args: string;
 }
 
+/** 不展示给用户的轮次错误码（底层传输/网络错误，对用户无意义，且常被重试兜住） */
+const SILENT_TURN_ERROR_CODES = new Set(['STREAM_CLOSED']);
+
 /**
  * 出站路由器：持有会话级状态，按事件类型分发到处理器
  */
@@ -155,7 +158,7 @@ class OutboundRouter {
     }
 
     const failure = extractTurnError(event.reason);
-    if (failure !== undefined) {
+    if (failure !== undefined && !SILENT_TURN_ERROR_CODES.has(failure.code)) {
       void this.send(record, `⚠️ 本轮异常结束\n\`${failure.code}\`: ${failure.message}`, 'sendTurnEndError');
     }
 

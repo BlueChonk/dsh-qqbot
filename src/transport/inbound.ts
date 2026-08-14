@@ -14,6 +14,7 @@ import type { SessionManager } from '../session/index.js';
 import type { ImQQBotConfig } from '../config.js';
 import type { ChatScope, Logger, RawAttachment, ReplyTarget } from '../types.js';
 import type { DownloadedFile } from './attachment.js';
+import { clearGroupHistory } from '../features/history-store.js';
 
 // ── 类型定义 ──
 
@@ -21,6 +22,7 @@ interface ProcessedMessage {
   rawEventType: string;
   kind: 'c2c' | 'group';
   senderId: string;
+  senderName?: string;
   content: string;
   messageId: string;
   timestamp: string;
@@ -79,7 +81,7 @@ interface ProcessedAttachment {
 export async function handleInbound(
   rawMsg: unknown,
   manager: SessionManager,
-  _config: ImQQBotConfig,
+  config: ImQQBotConfig,
   logger: Logger,
   state?: Record<string, unknown>,
 ): Promise<void> {
@@ -124,6 +126,11 @@ export async function handleInbound(
 
   record.agent.followup(message);
   logger.info(`→ followup sent: key=${scope}:${peerId}`);
+
+  // 群消息回复后清空历史缓存（避免下次 @ 时重复组包，对齐 openclaw-qqbot dispatch）
+  if (scope === 'group') {
+    clearGroupHistory(config.appId, msg.groupOpenid ?? msg.senderId);
+  }
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -148,7 +155,7 @@ function assembleAgentBody(
 
   const isGroup = scope === 'group';
   const wasMentioned = state.mention?.wasMentioned ?? false;
-  const userMessage = buildUserMessage(userContent, quotePart, msg.senderId, isGroup, wasMentioned);
+  const userMessage = buildUserMessage(userContent, quotePart, msg.senderId, msg.senderName, isGroup, wasMentioned);
 
   const dynamicCtx = buildDynamicCtx(msg, state, downloaded);
 
@@ -203,6 +210,7 @@ function buildUserMessage(
   userContent: string,
   quotePart: string,
   senderId: string,
+  senderName: string | undefined,
   isGroup: boolean,
   wasMentioned: boolean,
 ): string {
@@ -211,7 +219,8 @@ function buildUserMessage(
   }
 
   const mentionTag = wasMentioned ? ' (@you)' : '';
-  const senderTag = `[${senderId.slice(0, 8)} (${senderId})]`;
+  const displayName = senderName ?? shortSenderId(senderId);
+  const senderTag = `[${displayName} (${senderId})]`;
   return `${quotePart}${senderTag} ${userContent}${mentionTag}`;
 }
 
@@ -290,7 +299,7 @@ function buildAgentBody(
   }
 
   const historyLines = history.map(h => {
-    const name = h.senderName ?? h.senderId.slice(0, 8);
+    const name = h.senderName ?? shortSenderId(h.senderId);
     return `[${name} (${h.senderId})] ${h.content}`;
   });
 
@@ -383,4 +392,12 @@ function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes}B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+}
+
+/** 发送者短标识长度（openid 前 N 位，无昵称时兜底） */
+const SENDER_SHORT_ID_LEN = 8;
+
+/** 无昵称时用 openid 前 N 位作为匿名标识 */
+function shortSenderId(senderId: string): string {
+  return senderId.slice(0, SENDER_SHORT_ID_LEN);
 }
