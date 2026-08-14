@@ -44,11 +44,16 @@ export class ModelResolver {
   }
 
   /**
-   * 获取 resume 时覆盖 session 的模型路由（对齐 dsh-TUI 语义）
+   * 获取 resume 时覆盖 session 的模型路由
    *
-   * 仅「用户显式切换的 per-peer 偏好」和「cordis.yml 显式配置」才覆盖
-   * session 自己的 requestHeader；否则返回 undefined，让 session 沿用
-   * 自己历史里记录的模型（session 记住模型，避免重启后模型漂移）。
+   * 优先级：per-peer 偏好 > cordis.yml 显式配置 > 默认链（settings.yaml > host）
+   *
+   * 注意：不能像 dsh-TUI 那样返回 undefined 让 session 沿用 requestHeader。
+   * dsh-TUI 靠 installModelSelection 从 session.requestHeader 恢复 {{model}}，
+   * 而我们未装 installModelSelection，system-prompt 的 {{model}} 变量直接读
+   * agent.options.model（agent-loop index.ts:352）——若无值会抛
+   * "prompt variable {{model}} has no value for this assembly"。
+   * 因此这里兜底到默认链，确保 agent.options.model 始终有值。
    */
   getResumeRoute(sessionKey: string): ModelRoute | undefined {
     const override = this.prefs.getOverride(sessionKey);
@@ -58,7 +63,7 @@ export class ModelResolver {
       return { provider: this.config.provider, model: this.config.model };
     }
 
-    return undefined;
+    return this.resolveDefault();
   }
 
   /**
@@ -107,8 +112,9 @@ export class ModelResolver {
    * 解析默认模型路由（不含 per-peer 偏好）
    *
    * 优先级：config 显式指定 > settings.yaml（只读） > 宿主 agentDefaultModel
+   * 最终兜底 deepseek-official/deepseek-v4-flash，确保 {{model}} 变量始终有值。
    */
-  resolveDefault(): ModelRoute | undefined {
+  resolveDefault(): ModelRoute {
     if (this.config.provider && this.config.model) {
       return { provider: this.config.provider, model: this.config.model };
     }
@@ -116,7 +122,10 @@ export class ModelResolver {
     const fromSettings = this.settings.readDefaultRoute();
     if (fromSettings) return fromSettings;
 
-    return this.readFromHost();
+    const fromHost = this.readFromHost();
+    if (fromHost) return fromHost;
+
+    return { provider: 'deepseek-official', model: 'deepseek-v4-flash' };
   }
 
   /**
