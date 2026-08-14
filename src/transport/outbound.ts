@@ -1,5 +1,8 @@
 /**
  * 出站处理器 — dsh session/event → QQ 消息发送
+ *
+ * 采用路由器模式：OutboundRouter 持有会话级状态（文本缓冲、工具调用记录），
+ * 事件解析归一化在 events.ts，路由按事件类型分发到私有方法。
  */
 import type { SessionManager, SessionRecord } from '../session/index.js';
 import type { ImQQBotConfig } from '../config.js';
@@ -7,15 +10,22 @@ import type { Logger } from '../types.js';
 import { chunkMarkdownText } from './chunker.js';
 import { OutboundBuffer, type QQBotSender } from './outbound-buffer.js';
 import { formatToolResult, type ToolsRegistryLike, type ToolResultData } from './tool-presenter.js';
+import {
+  parseEvent,
+  extractTurnError,
+  type ChunkEvent,
+  type MessageEvent,
+  type ToolCallEvent,
+  type ToolResultEvent,
+  type TurnEndEvent,
+  type RawSessionEvent,
+} from './events.js';
 
 export type { QQBotSender } from './outbound-buffer.js';
 export type { ToolsRegistryLike } from './tool-presenter.js';
 
-/** dsh SessionEvent 简化类型 */
-export interface SessionEvent {
-  type: string;
-  data: Record<string, unknown>;
-}
+/** 出站处理器签名（注册到 ctx.on('session/event')） */
+export type OutboundHandler = (session: SessionLike, event: RawSessionEvent) => void;
 
 /** dsh Session 简化类型 */
 export interface SessionLike {
@@ -26,6 +36,136 @@ export interface SessionLike {
 interface ToolCallRecord {
   name: string;
   args: string;
+}
+
+/**
+ * 出站路由器：持有会话级状态，按事件类型分发到处理器
+ */
+class OutboundRouter {
+  private readonly buffers = new Map<string, OutboundBuffer>();
+  private readonly toolCalls = new Map<string, ToolCallRecord>();
+
+  public constructor(
+    private readonly manager: SessionManager,
+    private readonly bot: QQBotSender,
+    private readonly config: ImQQBotConfig,
+    private readonly logger: Logger,
+    private readonly toolsRegistry: ToolsRegistryLike | undefined,
+  ) {}
+
+  /** 事件分发入口 */
+  public route(session: SessionLike, raw: RawSessionEvent): void {
+    const event = parseEvent(raw);
+    if (event === undefined) return;
+
+    const record = this.manager.findBySessionId(session.header.id);
+    if (record === undefined) return;
+
+    switch (event.type) {
+      case 'assistant/chunk':
+        this.onChunk(session.header.id, record, event);
+        break;
+      case 'assistant/message':
+        this.onMessage(session.header.id, record, event);
+        break;
+      case 'tool/call':
+        this.onToolCall(event);
+        break;
+      case 'tool/result':
+        this.onToolResult(record, event);
+        break;
+      case 'turn/end':
+        this.onTurnEnd(session.header.id, record, event);
+        break;
+    }
+  }
+
+  /** 流式文本增量：累积到会话 buffer */
+  private onChunk(sessionId: string, record: SessionRecord, event: ChunkEvent): void {
+    let buffer = this.buffers.get(sessionId);
+    if (buffer === undefined) {
+      buffer = new OutboundBuffer(record, this.bot, this.config.textChunkLimit, this.logger);
+      this.buffers.set(sessionId, buffer);
+    }
+    buffer.append(event.text);
+  }
+
+  /** 完整 assistant 消息：有流式 buffer 则 flush，否则直接发送文本块 */
+  private onMessage(sessionId: string, record: SessionRecord, event: MessageEvent): void {
+    const buffer = this.buffers.get(sessionId);
+    if (buffer !== undefined && buffer.text.trim()) {
+      void buffer.flush();
+      this.buffers.delete(sessionId);
+      return;
+    }
+
+    const textParts: string[] = [];
+    for (const block of event.content) {
+      if (block.type === 'text' && block.text) textParts.push(block.text);
+    }
+    const fullText = textParts.join('\n');
+    if (!fullText.trim()) return;
+
+    void this.send(record, fullText, 'sendMarkdown');
+    this.buffers.delete(sessionId);
+  }
+
+  /** 工具调用：仅记录，不发送（避免刷屏，等待结果） */
+  private onToolCall(event: ToolCallEvent): void {
+    this.toolCalls.set(event.callId, { name: event.name, args: event.arguments });
+  }
+
+  /** 工具结果：错误始终发送，成功结果按开关 */
+  private onToolResult(record: SessionRecord, event: ToolResultEvent): void {
+    const call = this.toolCalls.get(event.callId);
+    this.toolCalls.delete(event.callId);
+    if (call === undefined) return;
+
+    if (event.error === undefined && !this.config.showToolResults) return;
+
+    const text = formatToolResult(
+      call.name,
+      call.args,
+      event.raw as unknown as ToolResultData,
+      this.toolsRegistry,
+      record.agent,
+    );
+    if (!text) return;
+
+    void this.send(record, text, 'sendToolResult');
+  }
+
+  /** 轮次结束：清理 buffer，异常结束时告知用户 */
+  private onTurnEnd(sessionId: string, record: SessionRecord, event: TurnEndEvent): void {
+    const buffer = this.buffers.get(sessionId);
+    if (buffer !== undefined) {
+      if (buffer.text.trim()) {
+        void buffer.flush();
+      } else {
+        buffer.cancel();
+      }
+      this.buffers.delete(sessionId);
+    }
+
+    const failure = extractTurnError(event.reason);
+    if (failure !== undefined) {
+      void this.send(record, `⚠️ 本轮异常结束\n\`${failure.code}\`: ${failure.message}`, 'sendTurnEndError');
+    }
+
+    this.logger.debug(`im-qqbot: turn/end sessionId=${sessionId}`);
+  }
+
+  /** 统一发送：切分 + 逐 chunk 发送 + 错误记录 */
+  private async send(record: SessionRecord, text: string, tag: string): Promise<void> {
+    const chunks = chunkMarkdownText(text, this.config.textChunkLimit);
+    for (const chunk of chunks) {
+      try {
+        await this.bot.sendMarkdown(record.replyTarget, chunk);
+      } catch (err) {
+        this.logger.error(`im-qqbot: ${tag} failed: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+  }
 }
 
 /**
@@ -40,178 +180,7 @@ export function createOutboundHandler(
   config: ImQQBotConfig,
   logger: Logger,
   toolsRegistry?: ToolsRegistryLike,
-): (session: SessionLike, event: SessionEvent) => void {
-  const buffers = new Map<string, OutboundBuffer>();
-  const toolCalls = new Map<string, ToolCallRecord>();
-  const limit = config.textChunkLimit;
-
-  return (session: SessionLike, event: SessionEvent) => {
-    const sessionId = session.header.id;
-    const record = manager.findBySessionId(sessionId);
-    if (!record) return;
-
-    switch (event.type) {
-      case 'assistant/chunk': {
-        handleChunk(sessionId, record, event, buffers, bot, limit, logger);
-        break;
-      }
-
-      case 'assistant/message': {
-        handleMessage(sessionId, record, event, buffers, bot, limit, logger);
-        break;
-      }
-
-      case 'tool/call': {
-        handleToolCall(event, toolCalls);
-        break;
-      }
-
-      case 'tool/result': {
-        handleToolResult(record, event, toolCalls, bot, config, logger, toolsRegistry);
-        break;
-      }
-
-      case 'turn/end': {
-        handleTurnEnd(sessionId, buffers, logger);
-        break;
-      }
-    }
-  };
-}
-
-/** 记录工具调用（不发送，避免刷屏，等待结果） */
-function handleToolCall(event: SessionEvent, toolCalls: Map<string, ToolCallRecord>): void {
-  const data = event.data as { callId?: string; name?: string; arguments?: string };
-  if (!data.callId || !data.name) return;
-  toolCalls.set(data.callId, { name: data.name, args: data.arguments ?? '' });
-}
-
-/** 格式化并发送工具结果（错误始终发送，成功结果按开关） */
-function handleToolResult(
-  record: SessionRecord,
-  event: SessionEvent,
-  toolCalls: Map<string, ToolCallRecord>,
-  bot: QQBotSender,
-  config: ImQQBotConfig,
-  logger: Logger,
-  toolsRegistry: ToolsRegistryLike | undefined,
-): void {
-  const data = event.data as {
-    message?: { source?: { callId?: string } };
-    error?: { name: string; code: string };
-  };
-  const callId = data.message?.source?.callId;
-  if (!callId) return;
-
-  const call = toolCalls.get(callId);
-  toolCalls.delete(callId);
-  if (!call) return;
-
-  // 错误始终展示，成功结果按 config.showToolResults
-  if (data.error === undefined && !config.showToolResults) return;
-
-  const text = formatToolResult(
-    call.name,
-    call.args,
-    event.data as unknown as ToolResultData,
-    toolsRegistry,
-    record.agent,
-  );
-  if (!text) return;
-
-  void (async () => {
-    const chunks = chunkMarkdownText(text, config.textChunkLimit);
-    for (const chunk of chunks) {
-      try {
-        await bot.sendMarkdown(record.replyTarget, chunk);
-      } catch (err) {
-        logger.error(`im-qqbot: sendToolResult failed: ${err instanceof Error ? err.message : String(err)}`);
-      }
-    }
-  })();
-}
-
-/** 处理流式文本增量 */
-function handleChunk(
-  sessionId: string,
-  record: SessionRecord,
-  event: SessionEvent,
-  buffers: Map<string, OutboundBuffer>,
-  bot: QQBotSender,
-  limit: number,
-  logger: Logger,
-): void {
-  const chunk = (event.data as { chunk?: { type?: string; text?: string } }).chunk;
-  if (!chunk || chunk.type !== 'text-delta' || !chunk.text) return;
-
-  let buffer = buffers.get(sessionId);
-  if (!buffer) {
-    buffer = new OutboundBuffer(record, bot, limit, logger);
-    buffers.set(sessionId, buffer);
-  }
-
-  buffer.append(chunk.text);
-}
-
-/** 处理完整 assistant 消息 */
-function handleMessage(
-  sessionId: string,
-  record: SessionRecord,
-  event: SessionEvent,
-  buffers: Map<string, OutboundBuffer>,
-  bot: QQBotSender,
-  limit: number,
-  logger: Logger,
-): void {
-  const buffer = buffers.get(sessionId);
-  if (buffer && buffer.text.trim()) {
-    void buffer.flush();
-    buffers.delete(sessionId);
-    return;
-  }
-
-  const message = event.data as { message?: { content?: Array<{ type: string; text?: string }> } };
-  const blocks = message?.message?.content;
-  if (!blocks || !Array.isArray(blocks)) return;
-
-  const textParts: string[] = [];
-  for (const block of blocks) {
-    if (block.type === 'text' && block.text) {
-      textParts.push(block.text);
-    }
-  }
-
-  const fullText = textParts.join('\n');
-  if (!fullText.trim()) return;
-
-  const chunks = chunkMarkdownText(fullText, limit);
-  void (async () => {
-    for (const chunk of chunks) {
-      try {
-        await bot.sendMarkdown(record.replyTarget, chunk);
-      } catch (err) {
-        logger.error(`im-qqbot: sendMarkdown failed: ${err instanceof Error ? err.message : String(err)}`);
-      }
-    }
-  })();
-
-  buffers.delete(sessionId);
-}
-
-/** 处理轮次结束，清理 buffer */
-function handleTurnEnd(
-  sessionId: string,
-  buffers: Map<string, OutboundBuffer>,
-  logger: Logger,
-): void {
-  const buffer = buffers.get(sessionId);
-  if (buffer) {
-    if (buffer.text.trim()) {
-      void buffer.flush();
-    } else {
-      buffer.cancel();
-    }
-    buffers.delete(sessionId);
-  }
-  logger.debug(`im-qqbot: turn/end sessionId=${sessionId}`);
+): OutboundHandler {
+  const router = new OutboundRouter(manager, bot, config, logger, toolsRegistry);
+  return (session, event) => router.route(session, event);
 }

@@ -238,13 +238,15 @@ function buildDynamicCtx(msg: ProcessedMessage, state: MiddlewareState): string 
 
   const voices = msg.attachments.filter(a => a.content_type === 'voice');
   if (voices.length > 0) {
-    const urls = voices.map(a => a.url).filter(Boolean);
-    if (urls.length > 0) {
-      lines.push(`- Voice: ${urls.join(', ')}`);
-    }
     const asrTexts = voices.map(a => a.asr_refer_text).filter(Boolean);
     if (asrTexts.length > 0) {
       lines.push(`- ASR: ${asrTexts.join(' | ')}`);
+    } else {
+      // 无 ASR 识别结果时才带链接（纯文本模型无法消费音频，链接无意义）
+      const urls = voices.map(a => a.url).filter(Boolean);
+      if (urls.length > 0) {
+        lines.push(`- Voice: ${urls.join(', ')}`);
+      }
     }
   }
 

@@ -244,7 +244,7 @@ export class SessionManager {
   private async composePreset(presetId?: string): Promise<PresetComposition> {
     let presets: AgentPresetsLike | undefined;
     try {
-      presets = (this.ctx as unknown as Record<string, unknown>).agentPresets as AgentPresetsLike | undefined;
+      presets = this.ctx.get('agentPresets') as AgentPresetsLike | undefined;
     } catch {
       // agentPresets 服务未注入，降级跳过
     }
@@ -297,9 +297,10 @@ export class SessionManager {
       agent = live;
       this.logger.info(`reusing live agent: key=${key}`);
     } else {
+      // preset 只解析一次：resume/create 共用同一组合，避免重复 resolve/mount 目录
+      const composed = await this.composePreset(this.config.preset);
+      agentPreset = composed.agentPreset;
       try {
-        const composed = await this.composePreset(this.config.preset);
-        agentPreset = composed.agentPreset;
         const resumeRoute = this.modelResolver.getResumeRoute(key);
         const resumed = await this.agents.resume({
           resumeSessionId: sessionId,
@@ -310,8 +311,6 @@ export class SessionManager {
         handle = resumed;
         this.logger.info(`resumed session: key=${key} preset=${agentPreset ?? 'none'} route=${resumeRoute ? `${resumeRoute.provider}/${resumeRoute.model}` : 'session-own'}`);
       } catch {
-        const composed = await this.composePreset(this.config.preset);
-        agentPreset = composed.agentPreset;
         const created = await this.agents.create({
           sessionId,
           meta: {

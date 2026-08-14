@@ -85,7 +85,7 @@ export function persistCredentialsToProfile(
   const log = logger ?? console;
   const dir = profileDir;
   if (!dir) {
-    printManualInstructions(credentials, log);
+    printManualInstructions(credentials);
     return false;
   }
 
@@ -127,7 +127,7 @@ export function persistCredentialsToProfile(
     return true;
   } catch (err) {
     log.warn(`写入配置失败: ${err instanceof Error ? err.message : String(err)}`);
-    printManualInstructions(credentials, log);
+    printManualInstructions(credentials);
     return false;
   }
 }
@@ -163,11 +163,8 @@ function parsePatchEntries(
   }
 }
 
-function printManualInstructions(
-  credentials: SetupCredentials,
-  log: { warn(msg: string, ...args: unknown[]): void },
-): void {
-  log.warn('无法自动保存凭据，请手动设置环境变量:');
-  log.warn(`  export QQBOT_APPID="${credentials.appId}"`);
-  log.warn(`  export QQBOT_SECRET="${credentials.appSecret}"`);
+function printManualInstructions(credentials: SetupCredentials): void {
+  console.log('无法自动保存凭据，请手动设置环境变量:');
+  console.log(`  export QQBOT_APPID="${credentials.appId}"`);
+  console.log(`  export QQBOT_SECRET="${credentials.appSecret}"`);
 }
