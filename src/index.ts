@@ -26,6 +26,7 @@ import type { MiddlewareContext } from '@tencent-connect/qqbot-nodejs';
 import { ConfigSchema, type ImQQBotConfig } from './config.js';
 import { SessionManager, type DshAgentRegistry } from './session/index.js';
 import { handleInbound, createOutboundHandler } from './transport/index.js';
+import type { ToolsRegistryLike } from './transport/tool-presenter.js';
 import { buildCommandList } from './commands/index.js';
 import { getProfileDir, resolveEnv, buildUserAgent } from './shared/index.js';
 import { runQrSetup, persistCredentialsToProfile } from './setup.js';
@@ -189,7 +190,15 @@ async function bootstrap(
   });
 
   // ── 出站 ──
-  const outboundHandler = createOutboundHandler(manager, bot, config, logger);
+  // 获取 tools 服务（工具结果结构化展示，参考 dsh-TUI presentResult），可选
+  let toolsRegistry: ToolsRegistryLike | undefined;
+  try {
+    toolsRegistry = ctx.get('tools') as ToolsRegistryLike | undefined;
+  } catch {
+    toolsRegistry = undefined;
+  }
+
+  const outboundHandler = createOutboundHandler(manager, bot, config, logger, toolsRegistry);
   (ctx as unknown as { on(event: string, handler: (...args: unknown[]) => void): void })
     .on('session/event', outboundHandler as (...args: unknown[]) => void);
 

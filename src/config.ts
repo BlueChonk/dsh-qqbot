@@ -45,6 +45,8 @@ export interface ImQQBotConfig {
   historyLimit: number;
   /** 访问控制 */
   access: AccessControlConfig;
+  /** 是否展示工具调用成功结果（工具错误始终展示） */
+  showToolResults: boolean;
   /** 调试模式 */
   debug: boolean;
 }
@@ -75,5 +77,6 @@ export const ConfigSchema: Schema<ImQQBotConfig> = Schema.object({
     groupMode: 'open',
     groupAllow: [],
   }).description('访问控制'),
+  showToolResults: Schema.boolean().default(false).description('是否展示工具调用成功结果（错误始终展示）'),
   debug: Schema.boolean().default(false),
 });
