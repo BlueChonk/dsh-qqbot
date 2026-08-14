@@ -16,8 +16,8 @@
       config:
         appId: __FROM_ENV__
         appSecret: __FROM_ENV__
-        provider: deepseek-official
-        model: deepseek-chat
+        # provider/model 留空：从宿主默认模型路由继承
+        # 用户可通过 /model 命令在聊天中切换
         requireMention: true
         textChunkLimit: 4500
         sessionIdleTimeout: 1800000

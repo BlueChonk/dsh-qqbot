@@ -9,11 +9,14 @@ importers:
   .:
     dependencies:
       '@tencent-connect/qqbot-connector':
-        specifier: ^1.2.0
+        specifier: 1.2.0
         version: 1.2.0
       '@tencent-connect/qqbot-nodejs':
         specifier: ^1.0.4
         version: 1.0.4
+      js-yaml:
+        specifier: ^4.1.0
+        version: 4.3.1
     devDependencies:
       '@deepseek-ai/cordis':
         specifier: 4.0.1
@@ -30,6 +33,9 @@ importers:
       '@deepseek-ai/schemastery':
         specifier: 3.18.1
         version: 3.18.1
+      '@types/js-yaml':
+        specifier: ^4.0.9
+        version: 4.0.9
       '@types/node':
         specifier: ^26.2.0
         version: 26.2.0
@@ -150,8 +156,18 @@ packages:
       silk-wasm:
         optional: true
 
+  '@types/js-yaml@4.0.9':
+    resolution: {integrity: sha512-k4MGaQl5TGo/iipqb2UDG2UwjXziSWkh0uysQelTlJpX1qGlpUZYm8PnO4DxG1qBomtJUdYJ6qR6xdIah10JLg==}
+
   '@types/node@26.2.0':
     resolution: {integrity: sha512-5IviulTZeRNp2vAJ514cc/HUlY5nZ9fCbq9DMyC52BrhFZACo3nI0R7qBxhQmo/d27NFe96ur/b7Wwxklda+kg==}
+
+  argparse@2.0.1:
+    resolution: {integrity: sha512-8+9WqebbFzpX9OR+Wa6O29asIogeRMzcGtAINdpMHHyAg10f05aSFVBbcEqGf/PXw1EjAZ+q2/bEBg3DvurK3Q==}
+
+  js-yaml@4.3.1:
+    resolution: {integrity: sha512-CY6crGq313MX8GkwvB7tzgp99vjQxY1++5y10/BKN/GUfHqWaOGQMNZkBvqSzsZKWk/ijwHlWzzkLulsGHhjWQ==}
+    hasBin: true
 
   qrcode-terminal@0.12.0:
     resolution: {integrity: sha512-EXtzRZmC+YGmGlDFbXKxQiMZNwCLEO6BANKXG4iCtSIM0yqc/pappSx3RIKr4r0uh5JsBckOXeKrB3Iz7mdQpQ==}
@@ -271,9 +287,17 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
+  '@types/js-yaml@4.0.9': {}
+
   '@types/node@26.2.0':
     dependencies:
       undici-types: 8.3.0
+
+  argparse@2.0.1: {}
+
+  js-yaml@4.3.1:
+    dependencies:
+      argparse: 2.0.1
 
   qrcode-terminal@0.12.0: {}
 

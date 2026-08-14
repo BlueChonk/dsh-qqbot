@@ -231,7 +231,7 @@ async function bootstrap(
 
 // ── 斜杠命令定义 ──
 
-function buildCommands(manager: SessionManager, config: ImQQBotConfig) {
+function buildCommands(manager: SessionManager, _config: ImQQBotConfig) {
   return [
     {
       name: ['reset', 'clear'],
@@ -247,6 +247,78 @@ function buildCommands(manager: SessionManager, config: ImQQBotConfig) {
       },
     },
     {
+      name: 'model',
+      description: '查看或切换模型（用法: /model [provider/model]）',
+      handler: async (cmdCtx: SlashCommandHandlerContext) => {
+        const msg = cmdCtx.message;
+        const scope = msg.kind === 'group' ? 'group' : 'c2c';
+        const peerId = scope === 'group'
+          ? ((msg as unknown as Record<string, unknown>).groupOpenid as string ?? msg.senderId)
+          : msg.senderId;
+        const args = (cmdCtx.command?.raw ?? '').trim();
+
+        // 无参数：显示当前模型 + 可用模型列表（可点击）
+        if (!args) {
+          const current = manager.getEffectiveModel(scope as 'c2c' | 'group', peerId);
+          const models = manager.listAvailableModels();
+
+          // 当前模型展示：优先用别名（name），找不到别名时回退到 provider/model id
+          let currentDisplay = '宿主默认配置';
+          if (current) {
+            const matched = models.find((m) => m.provider === current.provider && m.id === current.model);
+            currentDisplay = matched?.name ?? `${current.provider}/${current.model}`;
+          }
+
+          const lines: string[] = [
+            '### 🤖 模型配置',
+            '',
+            `**当前模型:** ${currentDisplay}`,
+          ];
+
+          if (models.length > 0) {
+            lines.push('', '**可用模型（点击切换）:**');
+            for (const m of models) {
+              const modelPath = `${m.provider}/${m.id}`;
+              const displayName = m.name ? `${m.name}` : modelPath;
+              lines.push(`<qqbot-cmd-input text="/model ${modelPath}" show="/model ${displayName}"/>`);
+            }
+          }
+
+          lines.push(
+            '',
+            '手动指定: `/model provider/model`',
+          );
+
+          const bot = (cmdCtx as unknown as Record<string, unknown>).bot as { sendMarkdown(target: unknown, content: string): Promise<unknown> };
+          const replyTarget = (cmdCtx as unknown as Record<string, unknown>).replyTarget;
+          await bot.sendMarkdown(replyTarget, lines.join('\n'));
+          return { kind: 'noop' as const };
+        }
+
+        // 解析 provider/model 格式
+        let provider: string;
+        let model: string;
+
+        if (args.includes('/')) {
+          const parts = args.split('/');
+          provider = parts[0] ?? '';
+          model = parts.slice(1).join('/');
+        } else {
+          // 仅指定 model 名，provider 从当前路由继承
+          const current = manager.getEffectiveModel(scope as 'c2c' | 'group', peerId);
+          provider = current?.provider ?? 'deepseek-official';
+          model = args;
+        }
+
+        if (!provider || !model) {
+          return '用法: /model provider/model\n示例: /model deepseek-official/deepseek-chat';
+        }
+
+        await manager.setModelOverride(scope as 'c2c' | 'group', peerId, { provider, model });
+        return `✅ 模型已切换: ${provider}/${model}\n立即生效，对话上下文保留。`;
+      },
+    },
+    {
       name: 'ping',
       description: '连通性测试',
       handler: () => 'pong 🏓',
@@ -254,7 +326,11 @@ function buildCommands(manager: SessionManager, config: ImQQBotConfig) {
     {
       name: 'version',
       description: '查看版本信息',
-      handler: () => `dsh-qqbot v0.1.0 | model: ${config.model ?? 'deepseek-chat'}`,
+      handler: () => {
+        const current = manager.getEffectiveModel('c2c', '');
+        const modelInfo = current ? `${current.provider}/${current.model}` : '宿主默认';
+        return `dsh-qqbot v0.1.0 | model: ${modelInfo}`;
+      },
     },
     {
       name: 'stop',
