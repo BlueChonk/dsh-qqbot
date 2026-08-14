@@ -29,6 +29,18 @@ export interface QQAttachment {
   size?: number;
 }
 
+/** SDK 原始消息附件（snake_case 字段，来自 QQ 网关 C2C_MESSAGE_CREATE） */
+export interface RawAttachment {
+  content_type: string;
+  filename: string;
+  size: number;
+  url: string;
+  asr_refer_text?: string;
+  width?: number;
+  height?: number;
+  [key: string]: unknown;
+}
+
 /** 插件 Logger 接口 */
 export interface Logger {
   info(msg: string, ...args: unknown[]): void;

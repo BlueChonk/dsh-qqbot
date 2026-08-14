@@ -12,20 +12,10 @@ import type { ContentBlock } from '@deepseek-ai/dsh-llm';
 import { createUserMessage } from '@deepseek-ai/dsh-llm';
 import type { SessionManager } from '../session/index.js';
 import type { ImQQBotConfig } from '../config.js';
-import type { ChatScope, Logger, ReplyTarget } from '../types.js';
+import type { ChatScope, Logger, RawAttachment, ReplyTarget } from '../types.js';
+import type { DownloadedFile } from './attachment.js';
 
 // ── 类型定义 ──
-
-interface Attachment {
-  content_type: string;
-  filename: string;
-  size: number;
-  url: string;
-  asr_refer_text?: string;
-  width?: number;
-  height?: number;
-  [key: string]: unknown;
-}
 
 interface ProcessedMessage {
   rawEventType: string;
@@ -36,7 +26,7 @@ interface ProcessedMessage {
   timestamp: string;
   groupOpenid?: string;
   msgType?: number;
-  attachments?: Attachment[];
+  attachments?: RawAttachment[];
   [key: string]: unknown;
 }
 
@@ -64,6 +54,7 @@ interface MiddlewareState {
   envelope?: string;
   mention?: MentionState;
   processedAttachments?: ProcessedAttachment[];
+  downloadedFiles?: DownloadedFile[];
   [key: string]: unknown;
 }
 
@@ -104,8 +95,11 @@ export async function handleInbound(
     msgId: msg.messageId,
   };
 
+  // ── 读取中间件已下载的文件（attachmentProcessor 写入 state.downloadedFiles） ──
+  const downloaded = mwState.downloadedFiles ?? [];
+
   // ── 组装 agentBody（对齐 openclaw-qqbot body-assembler） ──
-  const agentBody = assembleAgentBody(msg, mwState, scope, logger);
+  const agentBody = assembleAgentBody(msg, mwState, scope, logger, downloaded);
 
   if (!agentBody) return;
 
@@ -144,6 +138,7 @@ function assembleAgentBody(
   state: MiddlewareState,
   scope: ChatScope,
   logger: Logger,
+  downloaded: DownloadedFile[],
 ): string | null {
   const userContent = buildUserContent(msg, state, logger);
 
@@ -155,7 +150,7 @@ function assembleAgentBody(
   const wasMentioned = state.mention?.wasMentioned ?? false;
   const userMessage = buildUserMessage(userContent, quotePart, msg.senderId, isGroup, wasMentioned);
 
-  const dynamicCtx = buildDynamicCtx(msg, state);
+  const dynamicCtx = buildDynamicCtx(msg, state, downloaded);
 
   const base = dynamicCtx ? `${dynamicCtx}${userMessage}` : userMessage;
   const agentBody = buildAgentBody(base, state.history, isGroup, wasMentioned);
@@ -223,7 +218,7 @@ function buildUserMessage(
 /**
  * Layer 4: 媒体元数据上下文
  */
-function buildDynamicCtx(msg: ProcessedMessage, state: MiddlewareState): string {
+function buildDynamicCtx(msg: ProcessedMessage, state: MiddlewareState, downloaded: DownloadedFile[]): string {
   const lines: string[] = [];
 
   if (!msg.attachments || msg.attachments.length === 0) return '';
@@ -257,7 +252,14 @@ function buildDynamicCtx(msg: ProcessedMessage, state: MiddlewareState): string 
 
   const files = msg.attachments.filter(a => a.content_type === 'file');
   if (files.length > 0) {
-    lines.push(`- Files: ${files.map(a => `${a.filename} (${formatFileSize(a.size)})`).join(', ')}`);
+    for (const file of files) {
+      const d = downloaded.find(x => x.filename === file.filename);
+      if (d) {
+        lines.push(`- File: ${file.filename} → ${d.displayPath}`);
+      } else {
+        lines.push(`- File: ${file.filename} (${formatFileSize(file.size)})`);
+      }
+    }
   }
 
   if (lines.length === 0) return '';
@@ -313,7 +315,7 @@ interface VoiceText {
 }
 
 function extractVoiceTexts(
-  attachments?: Attachment[],
+  attachments?: RawAttachment[],
   processed?: ProcessedAttachment[],
   _logger?: Logger,
 ): VoiceText[] {
@@ -346,7 +348,7 @@ function extractVoiceTexts(
 }
 
 function describeAttachments(
-  attachments?: Attachment[],
+  attachments?: RawAttachment[],
   _processed?: ProcessedAttachment[],
 ): string {
   if (!attachments || attachments.length === 0) return '';

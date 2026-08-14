@@ -1,0 +1,114 @@
+/**
+ * SDK 中间件编排
+ *
+ * 根据插件配置组装 SDK 内置中间件链（洋葱模型）。
+ * 中间件负责过滤与上下文富化；最终消息统一由 bot.on('message') 处理转发。
+ */
+import type { QQBot, MiddlewareContext } from '@tencent-connect/qqbot-nodejs';
+import {
+  errorHandler,
+  messageFilter,
+  accessPolicy,
+  mentionGate,
+  contentSanitizer,
+  rateLimiter,
+  slashCommand,
+  concurrencyGuard,
+  typingIndicator,
+  quoteRef,
+  historyBuffer,
+  envelopeFormatter,
+  MemoryHistoryStore,
+} from '@tencent-connect/qqbot-nodejs';
+import type { ImQQBotConfig } from '../config.js';
+import type { SessionManager } from '../session/index.js';
+import type { Logger } from '../types.js';
+import { buildCommandList } from '../commands/index.js';
+import { attachmentProcessor } from '../middleware/attachment.js';
+
+export function setupMiddlewares(
+  bot: QQBot,
+  config: ImQQBotConfig,
+  manager: SessionManager,
+  logger: Logger,
+): void {
+  // 1. 错误兜底（最外层洋葱皮）
+  bot.use(errorHandler());
+
+  // 2. 消息过滤：bot 回声 + 消息去重
+  bot.use(messageFilter({ skipSelfEcho: false }));
+
+  // 3. 访问控制（白名单/开放/禁用）
+  bot.use(accessPolicy({
+    c2c: {
+      mode: config.access.c2cMode,
+      allow: config.access.c2cAllow.length > 0 ? config.access.c2cAllow : ['*'],
+    },
+    group: {
+      mode: config.access.groupMode,
+      allow: config.access.groupAllow.length > 0 ? config.access.groupAllow : ['*'],
+    },
+    onBlock: (_mCtx, reason) => {
+      if (config.debug) {
+        logger.debug(`Access blocked: ${reason}`);
+      }
+    },
+  }));
+
+  // 4. 群历史缓冲 — 放在门控之前，确保所有消息（含未 @bot）都计入上下文
+  const historyStore = new MemoryHistoryStore();
+  bot.use(historyBuffer({
+    limit: config.historyLimit,
+    store: historyStore,
+    recordOnSkip: true,
+  }));
+
+  // 5. 群聊 @bot 门控
+  bot.use(mentionGate({
+    requireMentionInGroup: config.requireMention,
+  }));
+
+  // 6. 内容清洗（去 @marker、表情标签、多余空白）
+  bot.use(contentSanitizer({
+    parseFaceTags: true,
+  }));
+
+  // 7. 三层限流（sender / group / global）
+  bot.use(rateLimiter());
+
+  // 8. 斜杠命令（在 concurrencyGuard 之前，命令匹配后不排队直接响应）
+  const slash = slashCommand({
+    autoHelp: true,
+    commands: buildCommandList({ manager, config }),
+  });
+  bot.use(slash.middleware);
+
+  // 9. 并发串行 + 消息合并（同 peer 排队，避免 session 冲突）
+  bot.use(concurrencyGuard({
+    strategy: 'merge',
+    maxQueue: config.maxQueue,
+    maxProcessingMs: config.processingTimeoutMs,
+    urgentPredicate: (mCtx: MiddlewareContext) => {
+      return (mCtx.message.content ?? '').trim() === '/bot-stop';
+    },
+  }));
+
+  // 10. C2C 输入状态指示
+  bot.use(typingIndicator());
+
+  // 11. 引用消息解析（记录 + 解析被引用原文）
+  bot.use(quoteRef({
+    maxSize: 500,
+    preferMsgElements: true,
+  }));
+
+  // 11.5. 附件下载（file 附件下载到本地，供 @提及 / 工具访问）
+  bot.use(attachmentProcessor(config, logger));
+
+  // 12. 上下文组装（将 history + quote + sender 组成 envelope）
+  bot.use(envelopeFormatter({
+    historyLimit: config.historyLimit,
+    includeQuote: true,
+    includeSender: true,
+  }));
+}
