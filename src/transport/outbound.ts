@@ -84,10 +84,17 @@ class OutboundRouter {
   private onChunk(sessionId: string, record: SessionRecord, event: ChunkEvent): void {
     let buffer = this.buffers.get(sessionId);
     if (buffer === undefined) {
-      buffer = new OutboundBuffer(record, this.bot, this.config.textChunkLimit, this.logger);
+      buffer = new OutboundBuffer(record, this.bot, this.config.textChunkLimit, this.logger, this.shouldStream(record));
       this.buffers.set(sessionId, buffer);
     }
     buffer.append(event.text);
+  }
+
+  /** 是否启用流式：配置开启 + c2c + 有 msgId（群聊不支持流式） */
+  private shouldStream(record: SessionRecord): boolean {
+    return this.config.streaming
+      && record.replyTarget.scope === 'c2c'
+      && !!record.replyTarget.msgId;
   }
 
   /** 完整 assistant 消息：有流式 buffer 则 flush，否则直接发送文本块 */
