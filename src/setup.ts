@@ -7,7 +7,8 @@
 import { resolve } from 'node:path';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import yaml from 'js-yaml';
-import { qrConnect } from '@tencent-connect/qqbot-connector';
+import { startQrConnect } from '@tencent-connect/qqbot-connector';
+import type { QrConnectCredentials } from '@tencent-connect/qqbot-connector';
 
 /** 凭据结果 */
 export interface SetupCredentials {
@@ -22,11 +23,16 @@ interface PatchEntry {
   [key: string]: unknown;
 }
 
+/** 终端可点击的 OSC 8 超链接（不支持 OSC 8 的终端会忽略控制序列，退化为纯 URL 文本） */
+function clickableLink(url: string): string {
+  return `\u001b]8;;${url}\u001b\\${url}\u001b]8;;\u001b\\`;
+}
+
 /**
  * 执行 QR 扫码绑定，获取 QQ Bot 凭据
  *
- * 使用动态 import 加载 qqbot-connector（可能未安装），
- * 在终端打印二维码等待用户扫码。
+ * 在终端打印二维码等待用户扫码；同时输出扫码 URL，
+ * 供二维码因系统字符问题渲染错位时点击/复制到浏览器打开扫码。
  */
 export async function runQrSetup(source = 'dsh-qqbot'): Promise<SetupCredentials | null> {
   console.log('\n══════════════════════════════════════════════════════');
@@ -36,7 +42,24 @@ export async function runQrSetup(source = 'dsh-qqbot'): Promise<SetupCredentials
   try {
     console.log('请使用手机 QQ 扫描下方二维码完成绑定...\n');
 
-    const credentials = await qrConnect({ source });
+    // 回调风格：onQrDisplayed 会在二维码打印后、轮询开始前回调扫码 URL，
+    // 让用户在二维码错位时也能通过链接打开扫码页（二维码过期刷新会再次触发）。
+    const credentials = await new Promise<QrConnectCredentials[]>((resolve, reject) => {
+      startQrConnect(
+        {
+          onSuccess: resolve,
+          onFailure: reject,
+          onQrDisplayed: (url) => {
+            console.log('二维码显示异常？点击下方链接，用浏览器打开即可完成扫码:');
+            console.log(`  ${clickableLink(url)}\n`);
+          },
+          onQrExpired: () => {
+            console.log('二维码已过期，正在刷新…\n');
+          },
+        },
+        { source },
+      );
+    });
 
     if (!credentials || credentials.length === 0) {
       console.error('[im-qqbot] 扫码未返回凭据');

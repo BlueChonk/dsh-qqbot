@@ -30,6 +30,8 @@ export async function bootstrapGateway(
     appId: config.appId,
     appSecret: config.appSecret,
     transport: 'websocket',
+    baseUrl: process.env.QQBOT_BASE_URL?.replace(/\/+$/, '') || 'https://api.bot.qq.com',
+    tokenBaseUrl: process.env.QQBOT_TOKEN_BASE_URL?.replace(/\/+$/, '') || 'https://api.bot.qq.com',
     userAgent,
     logger,
   } as ConstructorParameters<typeof QQBot>[0]);
