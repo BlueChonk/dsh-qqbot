@@ -39,17 +39,21 @@ export async function apply(ctx: Context, config: ImQQBotConfig): Promise<void> 
       return;
     }
 
-    // 持久化到 profile 配置
-    persistCredentialsToProfile(credentials, getProfileDir() ?? undefined, logger);
-
-    // 写入环境变量供热更新后的下次 apply 读取
+    // 写入环境变量（供热更新后的下次 apply 或本次直接启动读取）
     process.env.QQBOT_APPID = credentials.appId;
     process.env.QQBOT_SECRET = credentials.appSecret;
+    appId = credentials.appId;
+    appSecret = credentials.appSecret;
 
-    // 写入 cordis.patch.yml 会触发 dsh 热更新，自动重新加载本插件
-    // 此处直接返回，避免与热更新产生竞态
-    logger.info('配置已保存，等待热更新重新加载...');
-    return;
+    // 持久化到 profile：成功则等待热更新重载，失败则用 env 凭据直接启动
+    const persisted = persistCredentialsToProfile(credentials, getProfileDir() ?? undefined, logger);
+    if (persisted) {
+      // 写入 cordis.patch.yml 会触发 dsh 热更新，自动重新加载本插件。
+      // 直接返回，避免与热更新产生竞态。
+      logger.info('配置已保存，等待热更新重新加载...');
+      return;
+    }
+    logger.warn('凭据未能持久化，本次进程将使用环境变量凭据启动（重启后需重新绑定）');
   }
 
   const resolvedConfig: ImQQBotConfig = { ...config, appId, appSecret };

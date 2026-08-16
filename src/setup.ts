@@ -5,7 +5,7 @@
  * 唤起终端扫码流程获取凭据，并写入 dsh profile 配置。
  */
 import { resolve } from 'node:path';
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import yaml from 'js-yaml';
 import { startQrConnect } from '@tencent-connect/qqbot-connector';
 import type { QrConnectCredentials } from '@tencent-connect/qqbot-connector';
@@ -97,8 +97,8 @@ export async function runQrSetup(source = 'dsh-qqbot'): Promise<SetupCredentials
  * 将凭据写入 dsh profile 的 cordis.patch.yml
  *
  * 用 js-yaml 解析现有文件后更新/追加 im-qqbot 条目，再 dump 写回，
- * 保证输出始终是合法 YAML。兼容空数组 `[]`、条目列表，以及
- * `[]` 与条目混合导致解析失败等异常情况（失败时重建）。
+ * 保证输出始终是合法 YAML。文件不存在或为空时安全重建；
+ * 解析失败或结构异常时拒绝写入、保留原文件（避免覆盖用户其他配置）。
  */
 export function persistCredentialsToProfile(
   credentials: SetupCredentials,
@@ -108,17 +108,18 @@ export function persistCredentialsToProfile(
   const log = logger ?? console;
   const dir = profileDir;
   if (!dir) {
-    printManualInstructions(credentials);
+    // 开发模式：插件从源码加载、不在 node_modules 下，无法定位 profile 目录
+    printEnvInstructions(credentials);
     return false;
   }
 
   const patchPath = resolve(dir, 'cordis.patch.yml');
 
   try {
-    // 1. 解析现有条目（容错处理）
+    // 1. 解析现有条目（文件不存在/为空才重建；解析失败会抛错，保留原文件）
     let entries: PatchEntry[] = [];
     if (existsSync(patchPath)) {
-      entries = parsePatchEntries(readFileSync(patchPath, 'utf8'), log);
+      entries = parsePatchEntries(readFileSync(patchPath, 'utf8'));
     }
 
     // 2. 查找已有 im-qqbot 条目
@@ -143,14 +144,16 @@ export function persistCredentialsToProfile(
     }
 
     // 3. dump 写回（保证合法 YAML）
+    //    先确保 profile 目录存在（文件不存在时也能正常创建，而非误入 ENOENT）
     const output = `# QQ Bot 凭据（扫码绑定自动生成）\n${yaml.dump(entries)}`;
+    mkdirSync(dir, { recursive: true });
     writeFileSync(patchPath, output, 'utf8');
     log.info(`✔ 凭据已写入: ${patchPath}`);
     log.info(`  下次启动将自动使用保存的凭据`);
     return true;
   } catch (err) {
     log.warn(`写入配置失败: ${err instanceof Error ? err.message : String(err)}`);
-    printManualInstructions(credentials);
+    printYamlInstructions(credentials, patchPath);
     return false;
   }
 }
@@ -158,36 +161,45 @@ export function persistCredentialsToProfile(
 /**
  * 解析 cordis.patch.yml 为条目数组
  *
- * 容错处理：
- * - 空内容 / 空数组 `[]` → 空数组
- * - 条目列表 → 过滤出含 id 的对象
- * - 解析失败（如 `[]` 与条目混合的多文档）→ 返回空数组（重建）
+ * - 空内容 / 仅注释（yaml.load 返回 null/undefined）→ 空数组（允许安全重建）
+ * - 空数组 `[]` / 条目列表 → 过滤出含 id 的对象
+ * - 非数组结构 / YAML 语法错误 → 抛错（由调用方保留原文件，避免覆盖用户其他配置）
  */
-function parsePatchEntries(
-  content: string,
-  log: { warn(msg: string, ...args: unknown[]): void },
-): PatchEntry[] {
+function parsePatchEntries(content: string): PatchEntry[] {
   if (!content.trim()) return [];
 
-  try {
-    const parsed = yaml.load(content);
-    if (Array.isArray(parsed)) {
-      return parsed.filter(
-        (e): e is PatchEntry =>
-          typeof e === 'object' && e !== null && typeof (e as Record<string, unknown>).id === 'string',
-      );
-    }
-    return [];
-  } catch (err) {
-    log.warn(
-      `cordis.patch.yml 解析失败，将重建: ${err instanceof Error ? err.message : String(err)}`,
-    );
-    return [];
+  const parsed = yaml.load(content);
+  // 仅注释/空白 → null/undefined，等价于空文件，允许重建
+  if (parsed === null || parsed === undefined) return [];
+  if (!Array.isArray(parsed)) {
+    throw new Error('cordis.patch.yml 顶层必须是 YAML 数组');
+  }
+  return parsed.filter(
+    (e): e is PatchEntry =>
+      typeof e === 'object' && e !== null && typeof (e as Record<string, unknown>).id === 'string',
+  );
+}
+
+/** 开发模式引导：未定位到 profile 目录，引导用环境变量配置（console.log 确保可见） */
+function printEnvInstructions(credentials: SetupCredentials): void {
+  console.log('未检测到 profile 目录（开发模式），请通过环境变量配置凭据:');
+  if (process.platform === 'win32') {
+    // Windows CMD 语法（PowerShell 请用 $env:QQBOT_APPID="xxx"）
+    console.log(`  set QQBOT_APPID=${credentials.appId}`);
+    console.log(`  set QQBOT_SECRET=${credentials.appSecret}`);
+  } else {
+    console.log(`  export QQBOT_APPID="${credentials.appId}"`);
+    console.log(`  export QQBOT_SECRET="${credentials.appSecret}"`);
   }
 }
 
-function printManualInstructions(credentials: SetupCredentials): void {
-  console.log('无法自动保存凭据，请手动设置环境变量:');
-  console.log(`  export QQBOT_APPID="${credentials.appId}"`);
-  console.log(`  export QQBOT_SECRET="${credentials.appSecret}"`);
+/** 正式安装引导：自动写入失败，引导手动在 cordis.patch.yml 配置（console.log 确保可见） */
+function printYamlInstructions(credentials: SetupCredentials, patchPath: string): void {
+  console.log('无法自动保存凭据，请手动打开以下文件添加配置:');
+  console.log(`  ${patchPath}`);
+  console.log('');
+  console.log('  - id: im-qqbot');
+  console.log('    config:');
+  console.log(`      appId: "${credentials.appId}"`);
+  console.log(`      appSecret: "${credentials.appSecret}"`);
 }
