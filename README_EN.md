@@ -19,13 +19,17 @@ QQ User → QQ WebSocket → dsh-im-qqbot → ctx.agents → dsh agent loop → 
 
 ```bash
 # Add to a profile
-dsh plugin --profile qqbot add @tencent-connect/dsh-qqbot
+npx @deepseek-ai/dsh plugin --profile qqbot add @tencent-connect/dsh-qqbot
 
 # Start
-dsh --profile qqbot
+npx @deepseek-ai/dsh --profile qqbot
 ```
 
 On first launch, the plugin detects missing credentials and automatically starts the QR flow: a QR code is printed in the terminal → scan it with the QQ mobile app → credentials are saved to the profile, so subsequent launches require no re-scan.
+
+![QR code scan example](./docs/assets/qrcode.png)
+
+> **Note**: Upgrade to `0.4.0` or later for browser-link scanning, which avoids QR code misalignment in some terminals.
 
 ### Method 2: Local path
 
@@ -35,19 +39,18 @@ cd /path/to/dsh-qqbot
 pnpm install && pnpm build
 
 # Add to a profile (local path)
-dsh plugin --profile qqbot add /path/to/dsh-qqbot
+npx @deepseek-ai/dsh plugin --profile qqbot add /path/to/dsh-qqbot
 
 # Start
 export QQBOT_APPID="yourAppID" QQBOT_SECRET="yourAppSecret"
-dsh --profile qqbot
+npx @deepseek-ai/dsh --profile qqbot
 ```
 
 ### Method 3: --patch dev mode
 
 ```bash
-cd /path/to/deepseek-harness
 export QQBOT_APPID="yourAppID" QQBOT_SECRET="yourAppSecret"
-pnpm dsh web --patch /path/to/dsh-qqbot/cordis.dev.yml
+npx @deepseek-ai/dsh web --patch /path/to/dsh-qqbot/cordis.dev.yml
 ```
 
 ## Configuration
@@ -131,10 +134,9 @@ pnpm build
 # Dev mode (watch)
 pnpm dev
 
-# Debug via --patch (inside the dsh monorepo)
-cd /path/to/deepseek-harness
+# Debug via --patch
 export QQBOT_APPID="xxx" QQBOT_SECRET="xxx"
-pnpm dsh web --patch /path/to/dsh-qqbot/cordis.dev.yml
+npx @deepseek-ai/dsh web --patch /path/to/dsh-qqbot/cordis.dev.yml
 ```
 
 ## License

@@ -19,13 +19,17 @@ QQ 用户 → QQ WebSocket → dsh-im-qqbot → ctx.agents → dsh agent loop �
 
 ```bash
 # 安装到 profile
-dsh plugin --profile qqbot add @tencent-connect/dsh-qqbot
+npx @deepseek-ai/dsh plugin --profile qqbot add @tencent-connect/dsh-qqbot
 
 # 启动
-dsh --profile qqbot
+npx @deepseek-ai/dsh --profile qqbot
 ```
 
 首次启动时，插件检测到凭据未配置会自动进入扫码引导：终端输出二维码 → 手机 QQ 扫码绑定 → 凭据自动保存到 profile，后续启动无需再次扫码。
+
+![二维码扫码示意图](./docs/assets/qrcode.png)
+
+> **提示**：建议升级至 `0.4.0` 以上版本扫码，支持点击链接在浏览器打开，避免部分终端二维码渲染错位的问题。
 
 ### 方式二：本地路径安装
 
@@ -35,19 +39,18 @@ cd /path/to/dsh-qqbot
 pnpm install && pnpm build
 
 # 安装到 profile（本地路径）
-dsh plugin --profile qqbot add /path/to/dsh-qqbot
+npx @deepseek-ai/dsh plugin --profile qqbot add /path/to/dsh-qqbot
 
 # 启动
 export QQBOT_APPID="你的AppID" QQBOT_SECRET="你的AppSecret"
-dsh --profile qqbot
+npx @deepseek-ai/dsh --profile qqbot
 ```
 
 ### 方式三：--patch 开发模式
 
 ```bash
-cd /path/to/deepseek-harness
 export QQBOT_APPID="你的AppID" QQBOT_SECRET="你的AppSecret"
-pnpm dsh web --patch /path/to/dsh-qqbot/cordis.dev.yml
+npx @deepseek-ai/dsh web --patch /path/to/dsh-qqbot/cordis.dev.yml
 ```
 
 ## 配置项
@@ -131,10 +134,9 @@ pnpm build
 # 开发模式（watch）
 pnpm dev
 
-# 用 --patch 方式调试（在 dsh monorepo 中）
-cd /path/to/deepseek-harness
+# 用 --patch 方式调试
 export QQBOT_APPID="xxx" QQBOT_SECRET="xxx"
-pnpm dsh web --patch /path/to/dsh-qqbot/cordis.dev.yml
+npx @deepseek-ai/dsh web --patch /path/to/dsh-qqbot/cordis.dev.yml
 ```
 
 ## License
