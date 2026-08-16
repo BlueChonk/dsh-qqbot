@@ -27,7 +27,7 @@ npx @deepseek-ai/dsh --profile qqbot
 
 首次启动时，插件检测到凭据未配置会自动进入扫码引导：终端输出二维码 → 手机 QQ 扫码绑定 → 凭据自动保存到 profile，后续启动无需再次扫码。
 
-![二维码扫码示意图](./docs/assets/qrcode.png)
+<img src="./docs/assets/qrcode.png" alt="二维码扫码示意图" width="280" />
 
 > **提示**：建议升级至 `0.4.0` 以上版本扫码，支持点击链接在浏览器打开，避免部分终端二维码渲染错位的问题。
 

@@ -27,7 +27,7 @@ npx @deepseek-ai/dsh --profile qqbot
 
 On first launch, the plugin detects missing credentials and automatically starts the QR flow: a QR code is printed in the terminal → scan it with the QQ mobile app → credentials are saved to the profile, so subsequent launches require no re-scan.
 
-![QR code scan example](./docs/assets/qrcode.png)
+<img src="./docs/assets/qrcode.png" alt="QR code scan example" width="280" />
 
 > **Note**: Upgrade to `0.4.0` or later for browser-link scanning, which avoids QR code misalignment in some terminals.
 
