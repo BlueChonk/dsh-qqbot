@@ -3,6 +3,7 @@
  */
 import type { SlashCommand } from '@tencent-connect/qqbot-nodejs';
 import type { CommandDeps } from './types.js';
+import { getScopePeer } from '../shared/index.js';
 
 /** /bot-ping — 连通性测试 */
 export function pingCommand(): SlashCommand {
@@ -27,11 +28,20 @@ export function versionCommand({ manager }: CommandDeps): SlashCommand {
 }
 
 /** /bot-stop — 中止当前生成（隐藏） */
-export function stopCommand(): SlashCommand {
+export function stopCommand({ manager }: CommandDeps): SlashCommand {
   return {
     name: 'bot-stop',
     description: '中止当前生成',
     hidden: true,
-    handler: () => ({ kind: 'noop' as const }),
+    handler: (cmdCtx) => {
+      const { scope, peerId } = getScopePeer(cmdCtx);
+      const record = manager.getSessionRecord(scope, peerId);
+      if (record === undefined) return '当前没有进行中的生成';
+
+      // cancel 会让当前轮以 turn/end (kind=interrupted) 收尾，
+      // 出站侧据此 flush 已生成的文本并关闭流式会话。
+      record.agent.cancel({ kind: 'user' });
+      return '已中止 ⛔';
+    },
   };
 }

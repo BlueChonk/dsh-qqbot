@@ -4,7 +4,7 @@
  * 根据插件配置组装 SDK 内置中间件链（洋葱模型）。
  * 中间件负责过滤与上下文富化；最终消息统一由 bot.on('message') 处理转发。
  */
-import type { QQBot, MiddlewareContext } from '@tencent-connect/qqbot-nodejs';
+import type { QQBot } from '@tencent-connect/qqbot-nodejs';
 import {
   errorHandler,
   messageFilter,
@@ -89,13 +89,14 @@ export function setupMiddlewares(
   bot.use(slash.middleware);
 
   // 9. 并发串行 + 消息合并（同 peer 排队，避免 session 冲突）
+  //
+  // 这里不配 urgentPredicate：斜杠命令在上一层就被 slashCommand 短路了
+  // （命中即 ctx.stop），永远走不到本中间件，判定 /bot-stop 的谓词不会被调用。
+  // /bot-stop 的中止改由命令 handler 直接调 agent.cancel 完成。
   bot.use(concurrencyGuard({
     strategy: 'merge',
     maxQueue: config.maxQueue,
     maxProcessingMs: config.processingTimeoutMs,
-    urgentPredicate: (mCtx: MiddlewareContext) => {
-      return (mCtx.message.content ?? '').trim() === '/bot-stop';
-    },
   }));
 
   // 10. C2C 输入状态指示
