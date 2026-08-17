@@ -31,7 +31,18 @@ import type {
   SessionRecord,
   SessionStatus,
   TokenUsageStats,
+  CompactionServiceLike,
+  CompactOutcome,
 } from './types.js';
+
+/** ManualCompactionError 各 code 的友好提示（对齐 command-compact 的 expectedFailure 语义） */
+const COMPACTION_ERROR_HINTS: Record<string, string> = {
+  busy: '压缩服务忙，请稍后重试',
+  cancelled: '压缩已取消',
+  changed: '历史在压缩过程中发生变化，请重试',
+  commit: '压缩提交失败',
+  persistence: '压缩完成但保存失败',
+};
 
 export class SessionManager {
   private sessions = new Map<string, SessionRecord>();
@@ -144,7 +155,7 @@ export class SessionManager {
     this.modelResolver.clearSessionId(key);
   }
 
-  listAvailableModels(): ModelEntry[] {
+  async listAvailableModels(): Promise<ModelEntry[]> {
     return this.modelResolver.listModels();
   }
 
@@ -360,12 +371,62 @@ export class SessionManager {
   async remove(scope: ChatScope, peerId: string): Promise<void> {
     const key = this.sessionKey(scope, peerId);
     const record = this.sessions.get(key);
+    this.modelResolver.setSessionId(key, randomUUID());
+
     if (!record) return;
     this.sessions.delete(key);
-    this.modelResolver.clearSessionId(key);
     record.agent.cancel({ kind: 'user' });
     await record.handle.dispose().catch(() => {});
     this.logger.info(`session removed: key=${key}`);
+  }
+
+  /**
+   * 原地压缩当前会话历史（保留 sessionId，用摘要替换旧历史）。
+   *
+   * 需通过 agentPresets.serviceFor(agent, 'compaction') 解析；未挂载时优雅降级。
+   * 这是「压缩上下文」的语义，区别于 remove() 的「换新会话」。
+   */
+  async compact(scope: ChatScope, peerId: string): Promise<CompactOutcome> {
+    const key = this.sessionKey(scope, peerId);
+    const record = this.sessions.get(key);
+    if (!record) return { ok: false, reason: 'no-session' };
+    if (record.agent.status !== 'idle') return { ok: false, reason: 'busy' };
+
+    let compaction: CompactionServiceLike | undefined;
+    try {
+      const presets = this.ctx.get('agentPresets') as AgentPresetsLike | undefined;
+      compaction = (presets?.serviceFor(record.agent, 'compaction') ?? this.ctx.get('compaction')) as CompactionServiceLike | undefined;
+    } catch {
+      compaction = undefined;
+    }
+    if (!compaction) return { ok: false, reason: 'unavailable' };
+
+    const route = this.modelResolver.getEffectiveRoute(key);
+    const agentCtx = {
+      session: record.agent.session,
+      options: { provider: route?.provider, model: route?.model },
+      runMaintenance: record.agent.runMaintenance.bind(record.agent),
+    };
+
+    try {
+      const result = await compaction.compactNow(agentCtx, new AbortController().signal);
+      if (result === null) return { ok: true, shadowed: 0, tokens: 0 };
+      return { ok: true, shadowed: result.shadowedSeqs.length, tokens: result.shadowedTokenCount };
+    } catch (err) {
+      const code = (err as { code?: string } | null)?.code;
+      // summary = 摘要没有更小 = 历史不足以压缩，属正常结果而非失败
+      if (code === 'summary') {
+        return { ok: true, shadowed: 0, tokens: 0 };
+      }
+      // 其他 ManualCompactionError 预期失败，给友好文案（debug 记录，不 warn 刷屏）
+      if (code !== undefined && code in COMPACTION_ERROR_HINTS) {
+        this.logger.debug(`compact declined: key=${key} code=${code}`);
+        return { ok: false, reason: 'failed', message: COMPACTION_ERROR_HINTS[code] };
+      }
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`compact failed: key=${key} err=${message}`);
+      return { ok: false, reason: 'failed', message };
+    }
   }
 
   async disposeAll(): Promise<void> {

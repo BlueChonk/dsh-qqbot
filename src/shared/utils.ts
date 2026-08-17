@@ -12,8 +12,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const PLUGIN_ROOT = resolve(__dirname, '../..');
 
-/** 插件版本号（从 package.json 读取） */
-const PLUGIN_VERSION = readPluginVersion();
+/** 插件版本号（从 package.json 读取，供 help/version 等展示真实版本） */
+export const PLUGIN_VERSION = readPluginVersion();
 
 function readPluginVersion(): string {
   try {

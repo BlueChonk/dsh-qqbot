@@ -1,28 +1,48 @@
 /**
- * /bot-help — 查看所有指令以及用途
+ * /bot-help — 查看所有指令，按「通用能力 / QQBot 特有」分组展示
  *
- * 参考 openclaw-qqbot 的 bot-help.ts：遍历所有非隐藏命令，
- * 用 <qqbot-cmd-input> 展示为可点击按钮，以 Markdown 格式发送。
+ * 通用能力：对应底层 dsh agent 能力（new/compact/model/stop），无前缀
+ * QQBot 特有：插件自身封装（bot-ping/bot-version/bot-status/bot-help），带 bot- 前缀
  */
-import type { SlashCommand } from '@tencent-connect/qqbot-nodejs';
-import type { CommandDeps } from './types.js';
-import { sendMarkdownChunked } from '../shared/index.js';
+import type { CommandDeps, CategorizedCommand } from './types.js';
+import { sendMarkdownChunked, PLUGIN_VERSION } from '../shared/index.js';
 
-/** /bot-help — 查看所有指令以及用途 */
-export function helpCommand({ config }: CommandDeps, allCommands: () => SlashCommand[]): SlashCommand {
+/** /bot-help — 分组查看所有指令 */
+export function helpCommand(
+  { config }: CommandDeps,
+  allCommands: () => CategorizedCommand[],
+): CategorizedCommand {
   return {
     name: 'bot-help',
-    description: '查看所有指令以及用途',
+    category: 'qqbot',
+    description: '查看所有指令',
     handler: async (cmdCtx) => {
-      const lines = ['### QQBot插件内置指令', ''];
-
+      const agentCmds: CategorizedCommand[] = [];
+      const qqbotCmds: CategorizedCommand[] = [];
       for (const cmd of allCommands()) {
-        const name = Array.isArray(cmd.name) ? cmd.name[0] : cmd.name;
         if (cmd.hidden) continue;
-        lines.push(`<qqbot-cmd-input text="/${name}" show="/${name}"/> ${cmd.description ?? ''}`);
+        (cmd.category === 'agent' ? agentCmds : qqbotCmds).push(cmd);
       }
 
-      lines.push('', '> dsh-qqbot v0.1.0');
+      const render = (cmds: CategorizedCommand[]): string[] => {
+        const out: string[] = [];
+        for (const cmd of cmds) {
+          const name = Array.isArray(cmd.name) ? cmd.name[0] : cmd.name;
+          out.push(`<qqbot-cmd-input text="/${name}" show="/${name}"/> ${cmd.description ?? ''}`);
+        }
+        return out;
+      };
+
+      const lines: string[] = ['### 🤖 QQBot 指令', ''];
+
+      if (agentCmds.length > 0) {
+        lines.push('**通用能力**', '', ...render(agentCmds), '');
+      }
+      if (qqbotCmds.length > 0) {
+        lines.push('**插件内置指令**', '', ...render(qqbotCmds), '');
+      }
+
+      lines.push('', `> dsh-qqbot v${PLUGIN_VERSION}`);
       await sendMarkdownChunked(cmdCtx, lines.join('\n'), config.textChunkLimit);
       return { kind: 'noop' as const };
     },

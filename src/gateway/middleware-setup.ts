@@ -83,16 +83,14 @@ export function setupMiddlewares(
 
   // 8. 斜杠命令（在 concurrencyGuard 之前，命令匹配后不排队直接响应）
   const slash = slashCommand({
-    autoHelp: true,
+    // 关闭 autoHelp：help 命令由 qqbot 注册为 /bot-help，
+    // 避免 SDK 再自动注册一个无前缀的 /help 造成重复
+    autoHelp: false,
     commands: buildCommandList({ manager, config }),
   });
   bot.use(slash.middleware);
 
   // 9. 并发串行 + 消息合并（同 peer 排队，避免 session 冲突）
-  //
-  // 这里不配 urgentPredicate：斜杠命令在上一层就被 slashCommand 短路了
-  // （命中即 ctx.stop），永远走不到本中间件，判定 /bot-stop 的谓词不会被调用。
-  // /bot-stop 的中止改由命令 handler 直接调 agent.cancel 完成。
   bot.use(concurrencyGuard({
     strategy: 'merge',
     maxQueue: config.maxQueue,

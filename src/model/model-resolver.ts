@@ -19,6 +19,12 @@ import type { ModelRoute, ModelEntry } from './types.js';
 import { PrefsStore } from './prefs-store.js';
 import { SettingsReader } from './settings-reader.js';
 
+/** ctx.llm 服务的最小接口（listProviders 同步，listModels 异步） */
+interface LlmServiceLike {
+  listProviders(): Array<{ id: string; name: string }> | string[];
+  listModels(providerId: string): Promise<readonly { id: string; name?: string }[]>;
+}
+
 export class ModelResolver {
   private readonly prefs: PrefsStore;
   private readonly settings: SettingsReader;
@@ -130,8 +136,38 @@ export class ModelResolver {
 
   /**
    * 列出所有可用模型
+   *
+   * 优先走 ctx.llm 服务动态发现（对齐 webui 的 buildModelCatalog），
+   * 服务不可用或失败时回退 settings.yaml 静态配置。
    */
-  listModels(): ModelEntry[] {
+  async listModels(): Promise<ModelEntry[]> {
+    const llm = this.getLlmService();
+    if (!llm) return this.settings.readModels();
+
+    try {
+      const providers = llm.listProviders();
+      const entries: ModelEntry[] = [];
+      for (const provider of providers) {
+        const providerId = typeof provider === 'string' ? provider : provider.id;
+        try {
+          const models = await llm.listModels(providerId);
+          for (const model of models) {
+            entries.push({ provider: providerId, id: model.id, name: model.name });
+          }
+        } catch (err) {
+          // 单个 provider 失败，跳过（对齐 webui 的 failures 语义）
+          this.logger?.debug(
+            `ModelResolver: provider ${providerId} 模型列表获取失败: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+      }
+      if (entries.length > 0) return entries;
+    } catch (err) {
+      this.logger?.warn(
+        `ModelResolver: 动态发现模型失败，回退 settings.yaml: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+
     return this.settings.readModels();
   }
 
@@ -139,21 +175,14 @@ export class ModelResolver {
    * 列出可用 provider 名称
    */
   listProviders(): string[] {
-    try {
-      const llm = this.getService('llm') as
-        | { listProviders(): Array<{ id: string; name: string }> | string[] }
-        | undefined;
-
-      if (llm && typeof llm.listProviders === 'function') {
-        const providers = llm.listProviders();
-        if (providers.length > 0) {
-          const first = providers[0];
-          if (typeof first === 'string') return providers as string[];
-          return (providers as Array<{ id: string; name: string }>).map((p) => p.id);
-        }
+    const llm = this.getLlmService();
+    if (llm) {
+      const providers = llm.listProviders();
+      if (providers.length > 0) {
+        const first = providers[0];
+        if (typeof first === 'string') return providers as string[];
+        return (providers as Array<{ id: string; name: string }>).map((p) => p.id);
       }
-    } catch {
-      // 忽略
     }
 
     return this.settings.readProviders();
@@ -181,10 +210,28 @@ export class ModelResolver {
     return undefined;
   }
 
-  /** 统一的 Cordis 服务访问 */
+  /** 统一的 Cordis 服务访问（可选获取：服务未注入时静默返回 undefined，避免 Proxy 抛错） */
   private getService(name: string): unknown {
-    const ctxAny = this.ctx as unknown as Record<string, unknown>;
-    return ctxAny[name] ??
-      (typeof ctxAny.get === 'function' ? (ctxAny.get as (key: string) => unknown)(name) : undefined);
+    try {
+      const ctxAny = this.ctx as unknown as { get?: (key: string) => unknown };
+      return typeof ctxAny.get === 'function' ? ctxAny.get(name) : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  /** 获取 ctx.llm 服务（最小接口收窄，不可用时返回 undefined） */
+  private getLlmService(): LlmServiceLike | undefined {
+    try {
+      const llm = this.getService('llm') as LlmServiceLike | undefined;
+      if (llm && typeof llm.listProviders === 'function' && typeof llm.listModels === 'function') {
+        return llm;
+      }
+    } catch (err) {
+      this.logger?.warn(
+        `ModelResolver: ctx.llm 服务访问失败: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+    return undefined;
   }
 }

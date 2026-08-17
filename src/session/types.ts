@@ -33,6 +33,32 @@ export interface DshAgent {
   cancel(cause: { kind: string }): void;
   followup(message: unknown): void;
   whenIdle(): Promise<void>;
+  /** 运行一个非 turn 维护任务（compact 等需要 idle 时串行执行的操作） */
+  runMaintenance<T>(task: (signal: AbortSignal) => Promise<T>): Promise<T>;
+}
+
+/** compactNow 返回结果的精简视图（只取展示所需字段） */
+export interface CompactionResultLike {
+  shadowedSeqs: readonly number[];
+  shadowedTokenCount: number;
+}
+
+/** ctx.compaction 服务的最小接口（compactNow 依赖，可选注入） */
+export interface CompactionServiceLike {
+  compactNow(
+    agent: unknown,
+    signal: AbortSignal,
+    sourceCommandId?: string,
+  ): Promise<CompactionResultLike | null>;
+}
+
+/** compact 操作结果 */
+export interface CompactOutcome {
+  ok: boolean;
+  reason?: 'no-session' | 'busy' | 'unavailable' | 'failed';
+  shadowed?: number;
+  tokens?: number;
+  message?: string;
 }
 
 export interface DshAgentHandle {
@@ -69,6 +95,8 @@ export interface AgentPresetsLike {
   readonly defaultId: string;
   resolve(id?: string): Promise<{ id: string }>;
   mount(agentCtx: Context, id?: string): Promise<unknown>;
+  /** 从 agent 的 preset scope 解析隔离服务（如 compaction），未挂载返回 undefined */
+  serviceFor(agent: { ctx: Context }, name: string): unknown | undefined;
 }
 
 /** preset 组合结果 */

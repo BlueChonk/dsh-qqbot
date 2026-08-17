@@ -1,36 +1,41 @@
 /**
- * 杂项命令：/ping /version /stop
+ * 杂项命令
+ *
+ * - /bot-ping /bot-version：QQBot 插件特有（连通性测试、版本信息）
+ * - /stop：中止当前生成（对应底层 agent cancel，通用能力）
  */
-import type { SlashCommand } from '@tencent-connect/qqbot-nodejs';
-import type { CommandDeps } from './types.js';
-import { getScopePeer } from '../shared/index.js';
+import type { CommandDeps, CategorizedCommand } from './types.js';
+import { getScopePeer, PLUGIN_VERSION } from '../shared/index.js';
 
 /** /bot-ping — 连通性测试 */
-export function pingCommand(): SlashCommand {
+export function pingCommand(): CategorizedCommand {
   return {
     name: 'bot-ping',
+    category: 'qqbot',
     description: '连通性测试',
     handler: () => 'pong 🏓',
   };
 }
 
 /** /bot-version — 查看版本信息 */
-export function versionCommand({ manager }: CommandDeps): SlashCommand {
+export function versionCommand({ manager }: CommandDeps): CategorizedCommand {
   return {
     name: 'bot-version',
+    category: 'qqbot',
     description: '查看版本信息',
     handler: () => {
       const current = manager.getEffectiveModel('c2c', '');
       const modelInfo = current ? `${current.provider}/${current.model}` : '宿主默认';
-      return `dsh-qqbot v0.1.0 | model: ${modelInfo}`;
+      return `dsh-qqbot v${PLUGIN_VERSION} | model: ${modelInfo}`;
     },
   };
 }
 
-/** /bot-stop — 中止当前生成（隐藏） */
-export function stopCommand({ manager }: CommandDeps): SlashCommand {
+/** /stop — 中止当前生成（隐藏） */
+export function stopCommand({ manager }: CommandDeps): CategorizedCommand {
   return {
     name: 'stop',
+    category: 'agent',
     description: '中止当前生成',
     hidden: true,
     handler: (cmdCtx) => {

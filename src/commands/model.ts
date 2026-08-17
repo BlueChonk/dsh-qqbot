@@ -1,14 +1,14 @@
 /**
- * 模型命令：/bot-model — 查看或切换模型
+ * 模型命令：/model — 查看或切换模型
  */
-import type { SlashCommand } from '@tencent-connect/qqbot-nodejs';
-import type { CommandDeps } from './types.js';
+import type { CommandDeps, CategorizedCommand } from './types.js';
 import { getScopePeer, sendMarkdownChunked } from '../shared/index.js';
 
-export function modelCommand({ manager, config }: CommandDeps): SlashCommand {
+export function modelCommand({ manager, config }: CommandDeps): CategorizedCommand {
   return {
-    name: 'bot-model',
-    description: '查看或切换模型（用法: /bot-model [provider/model]）',
+    name: 'model',
+    category: 'agent',
+    description: '查看或切换模型（用法: /model [provider/model]）',
     handler: async (cmdCtx) => {
       const { scope, peerId } = getScopePeer(cmdCtx);
       const args = (cmdCtx.command?.raw ?? '').trim();
@@ -16,7 +16,7 @@ export function modelCommand({ manager, config }: CommandDeps): SlashCommand {
       // 无参数：显示当前模型 + 可用模型列表（可点击）
       if (!args) {
         const current = manager.getEffectiveModel(scope, peerId);
-        const models = manager.listAvailableModels();
+        const models = await manager.listAvailableModels();
 
         // 当前模型展示：优先用别名（name），找不到别名时回退到 provider/model id
         let currentDisplay = '宿主默认配置';
@@ -36,11 +36,11 @@ export function modelCommand({ manager, config }: CommandDeps): SlashCommand {
           for (const m of models) {
             const modelPath = `${m.provider}/${m.id}`;
             const displayName = m.name ? `${m.name}` : modelPath;
-            lines.push(`<qqbot-cmd-input text="/bot-model ${modelPath}" show="/bot-model ${displayName}"/>`);
+            lines.push(`<qqbot-cmd-input text="/model ${modelPath}" show="/model ${displayName}"/>`);
           }
         }
 
-        lines.push('', '手动指定: `/bot-model provider/model`');
+        lines.push('', '手动指定: `/model provider/model`');
 
         await sendMarkdownChunked(cmdCtx, lines.join('\n'), config.textChunkLimit);
         return { kind: 'noop' as const };
@@ -62,7 +62,7 @@ export function modelCommand({ manager, config }: CommandDeps): SlashCommand {
       }
 
       if (!provider || !model) {
-        return '用法: /bot-model provider/model\n示例: /bot-model deepseek-official/deepseek-v4-flash';
+        return '用法: /model provider/model\n示例: /model deepseek-official/deepseek-v4-flash';
       }
 
       await manager.setModelOverride(scope, peerId, { provider, model });
