@@ -23,6 +23,8 @@ export interface SessionEventLike {
 export interface DshAgent {
   readonly id: string;
   readonly ctx: Context;
+  /** 当前生命周期状态（对齐 dsh Agent.status，用于判断是否正在生成） */
+  readonly status: 'idle' | 'running';
   /** 底层 session（fork 时作为 source，events 用于统计/导出） */
   readonly session: {
     readonly id: string;

@@ -27,7 +27,7 @@ export function buildCommandList(deps: CommandDeps): SlashCommand[] {
     // 杂项
     pingCommand(),
     versionCommand(deps),
-    stopCommand(),
+    stopCommand(deps),
   ];
 
   // help 需要访问完整列表（含自身），通过闭包惰性引用
