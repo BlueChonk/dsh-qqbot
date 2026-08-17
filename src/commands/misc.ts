@@ -30,13 +30,16 @@ export function versionCommand({ manager }: CommandDeps): SlashCommand {
 /** /bot-stop — 中止当前生成（隐藏） */
 export function stopCommand({ manager }: CommandDeps): SlashCommand {
   return {
-    name: 'bot-stop',
+    name: 'stop',
     description: '中止当前生成',
     hidden: true,
     handler: (cmdCtx) => {
       const { scope, peerId } = getScopePeer(cmdCtx);
       const record = manager.getSessionRecord(scope, peerId);
-      if (record === undefined) return '当前没有进行中的生成';
+      // 会话存在不等于正在生成：只有 agent 处于 running 才算有进行中的回复
+      if (record === undefined || record.agent.status !== 'running') {
+        return '当前没有进行中的生成';
+      }
 
       // cancel 会让当前轮以 turn/end (kind=interrupted) 收尾，
       // 出站侧据此 flush 已生成的文本并关闭流式会话。
