@@ -1,14 +1,14 @@
 /**
- * 状态命令：/bot-status
+ * 状态命令：/bot-status（QQBot 特有）
  */
-import type { SlashCommand } from '@tencent-connect/qqbot-nodejs';
-import type { CommandDeps } from './types.js';
+import type { CommandDeps, CategorizedCommand } from './types.js';
 import { getScopePeer, formatRelativeTime } from '../shared/index.js';
 
 /** /bot-status — 查看当前会话状态 */
-export function statusCommand({ manager }: CommandDeps): SlashCommand {
+export function statusCommand({ manager }: CommandDeps): CategorizedCommand {
   return {
     name: 'bot-status',
+    category: 'qqbot',
     description: '查看当前会话状态',
     handler: (cmdCtx) => {
       const { scope, peerId } = getScopePeer(cmdCtx);

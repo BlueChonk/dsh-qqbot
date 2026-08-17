@@ -3,10 +3,13 @@
  *
  * 每个命令拆分为独立文件，此处仅编排。参考 openclaw-qqbot 的
  * commands/index.ts 模式：工厂函数注入依赖，统一导出命令列表。
+ *
+ * 命令按 category 分两类：
+ *   - agent：底层 dsh agent 通用能力（new/compact/model/stop）
+ *   - qqbot：插件自身特有（ping/version/status/help）
  */
-import type { SlashCommand } from '@tencent-connect/qqbot-nodejs';
-import type { CommandDeps } from './types.js';
-import { resetCommand, newCommand } from './session.js';
+import type { CommandDeps, CategorizedCommand } from './types.js';
+import { newCommand, compactCommand } from './session.js';
 import { modelCommand } from './model.js';
 import { statusCommand } from './status.js';
 import { helpCommand } from './help.js';
@@ -15,19 +18,17 @@ import { pingCommand, versionCommand, stopCommand } from './misc.js';
 /**
  * 构建标准命令列表
  */
-export function buildCommandList(deps: CommandDeps): SlashCommand[] {
-  const commands: SlashCommand[] = [
-    // 会话
-    resetCommand(deps),
+export function buildCommandList(deps: CommandDeps): CategorizedCommand[] {
+  const commands: CategorizedCommand[] = [
+    // 通用能力（底层 agent）
     newCommand(deps),
-    // 模型
+    compactCommand(deps),
     modelCommand(deps),
-    // 状态
-    statusCommand(deps),
-    // 杂项
+    stopCommand(deps),
+    // QQBot 特有
     pingCommand(),
     versionCommand(deps),
-    stopCommand(deps),
+    statusCommand(deps),
   ];
 
   // help 需要访问完整列表（含自身），通过闭包惰性引用
