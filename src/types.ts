@@ -12,23 +12,6 @@ export interface ReplyTarget {
   msgId?: string;
 }
 
-/** QQ 入站消息（简化） */
-export interface QQInboundMessage {
-  content?: string;
-  senderId: string;
-  groupOpenid?: string;
-  replyTarget: ReplyTarget;
-  attachments?: QQAttachment[];
-}
-
-/** QQ 附件 */
-export interface QQAttachment {
-  contentType: string;
-  filename?: string;
-  url?: string;
-  size?: number;
-}
-
 /** SDK 原始消息附件（snake_case 字段，来自 QQ 网关 C2C_MESSAGE_CREATE） */
 export interface RawAttachment {
   content_type: string;
@@ -39,6 +22,14 @@ export interface RawAttachment {
   width?: number;
   height?: number;
   [key: string]: unknown;
+}
+
+/** 引用消息附件（quoteRef 中间件解析的 camelCase 视图） */
+export interface QuotedAttachment {
+  contentType?: string;
+  url?: string;
+  filename?: string;
+  asrText?: string;
 }
 
 /** 插件 Logger 接口 */
