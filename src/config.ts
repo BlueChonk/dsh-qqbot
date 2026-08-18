@@ -14,6 +14,32 @@ export interface AccessControlConfig {
   groupAllow: string[];
 }
 
+export interface MediaConfig {
+  /** 是否启用富媒体理解（图片/视频下载 + 工具分析） */
+  enabled: boolean;
+  /** 富媒体下载大小上限（MB），默认 200 */
+  maxMB: number;
+  /** 富媒体存活时长（小时，TTL），默认 24，0 = 永不过期 */
+  ttlHours: number;
+}
+
+export interface VisionConfig {
+  /** 是否启用视觉理解（qqbot_describe_image 工具） */
+  enabled: boolean;
+  /** 视觉模型 provider（dsh 注册的 llm adapter，如 pi-ai） */
+  provider: string;
+  /** 视觉模型 id（如 qwen-vl-max） */
+  model: string;
+  /** 默认描述 prompt（调用未显式指定时使用） */
+  defaultPrompt: string;
+  /** 图片字节上限，默认 10MB */
+  maxBytes: number;
+  /** 输出 token 上限 */
+  maxTokens: number;
+  /** 视觉调用超时(ms) */
+  timeoutMs: number;
+}
+
 export interface ImQQBotConfig {
   /** QQ Bot AppID */
   appId: string;
@@ -51,6 +77,10 @@ export interface ImQQBotConfig {
   showToolResults: boolean;
   /** 调试模式 */
   debug: boolean;
+  /** 富媒体理解（图片/视频） */
+  media: MediaConfig;
+  /** 视觉理解（qqbot_describe_image 工具，走 dsh llm + attachments） */
+  vision: VisionConfig;
 }
 
 export const ConfigSchema: Schema<ImQQBotConfig> = Schema.object({
@@ -82,4 +112,30 @@ export const ConfigSchema: Schema<ImQQBotConfig> = Schema.object({
   }).description('访问控制'),
   showToolResults: Schema.boolean().default(false).description('是否展示工具调用成功结果（错误始终展示）'),
   debug: Schema.boolean().default(false),
+  media: Schema.object({
+    enabled: Schema.boolean().default(true).description('是否启用富媒体理解（图片/视频下载 + 工具分析）'),
+    maxMB: Schema.number().default(200).description('富媒体下载大小上限(MB)'),
+    ttlHours: Schema.number().default(24).description('富媒体存活时长(小时)，0=永不过期'),
+  }).default({
+    enabled: true,
+    maxMB: 200,
+    ttlHours: 24,
+  }).description('富媒体理解配置'),
+  vision: Schema.object({
+    enabled: Schema.boolean().default(false).description('是否启用视觉理解（qqbot_describe_image 工具）'),
+    provider: Schema.string().default('').description('视觉模型 provider（dsh 注册的 llm adapter，如 pi-ai）'),
+    model: Schema.string().default('').description('视觉模型 id（如 qwen-vl-max）'),
+    defaultPrompt: Schema.string().default('Describe this image in detail.').description('默认描述 prompt'),
+    maxBytes: Schema.number().default(10 * 1024 * 1024).description('图片字节上限'),
+    maxTokens: Schema.number().default(1024).description('输出 token 上限'),
+    timeoutMs: Schema.number().default(120000).description('视觉调用超时(ms)'),
+  }).default({
+    enabled: false,
+    provider: '',
+    model: '',
+    defaultPrompt: 'Describe this image in detail.',
+    maxBytes: 10 * 1024 * 1024,
+    maxTokens: 1024,
+    timeoutMs: 120000,
+  }).description('视觉理解配置'),
 });
