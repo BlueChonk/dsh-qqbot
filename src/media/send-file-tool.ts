@@ -31,7 +31,7 @@ interface MediaSendResult {
   message?: { id?: string };
 }
 
-interface MediaSenderLike {
+export interface MediaSenderLike {
   sendImage(target: ReplyTarget, source: { localPath?: string }): Promise<MediaSendResult>;
   sendVideo(target: ReplyTarget, source: { localPath?: string }): Promise<MediaSendResult>;
   sendVoice(target: ReplyTarget, source: { localPath?: string }): Promise<MediaSendResult>;

@@ -10,6 +10,8 @@ export interface ReplyTarget {
   scope: ChatScope;
   targetId: string;
   msgId?: string;
+  /** 互动事件 id（带 INTERACTION_CREATE 前缀），填 event_id 字段，与 msgId 互斥 */
+  eventId?: string;
 }
 
 /** SDK 原始消息附件（snake_case 字段，来自 QQ 网关 C2C_MESSAGE_CREATE） */
