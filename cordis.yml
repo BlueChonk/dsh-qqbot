@@ -23,6 +23,11 @@
 - id: system-prompt
   name: '@deepseek-ai/dsh-system-prompt'
 
+- id: approval
+  name: '@deepseek-ai/dsh-user-approval'
+  config:
+    policy: !!js "process.platform === 'win32' ? 'never' : ((process.env.DSH_PERMISSION_MODE ?? 'workspace-write') === 'danger-full-access' ? 'never' : 'ask')"
+
 - id: tools
   name: '@deepseek-ai/dsh-tools'
 
