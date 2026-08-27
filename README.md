@@ -13,6 +13,15 @@
 
 **[English](./README_EN.md) | 简体中文**
 
+扫码加入 QQ 群 / 频道
+
+<table>
+<tr>
+<td align="center" width="50%"><img src="./docs/assets/qqgroup.jpg" height="360" alt="QQ 群二维码" /><br /><b>QQ 开发者交流群</b><br /><sub>群号: 1032635674</sub></td>
+<td align="center" width="50%"><img src="./docs/assets/qqchannel.jpg" height="360" alt="QQ 频道二维码" /><br /><b>QQ 开发者社区频道</b><br /><sub>频道号: 20dnumts4z</sub></td>
+</tr>
+</table>
+
 </div>
 
 ## 架构

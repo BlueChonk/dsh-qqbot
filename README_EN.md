@@ -13,6 +13,15 @@
 
 **[简体中文](./README.md) | English**
 
+Scan to join the QQ group / channel
+
+<table>
+<tr>
+<td align="center" width="50%"><img src="./docs/assets/qqgroup.jpg" height="360" alt="QQ Group QR Code" /><br /><b>QQ Developer Group</b><br /><sub>Group ID: 1032635674</sub></td>
+<td align="center" width="50%"><img src="./docs/assets/qqchannel.jpg" height="360" alt="QQ Channel QR Code" /><br /><b>QQ Developer Channel</b><br /><sub>Channel ID: 20dnumts4z</sub></td>
+</tr>
+</table>
+
 </div>
 
 ## Architecture
