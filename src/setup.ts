@@ -84,7 +84,7 @@ export async function runQrSetup(source = 'dsh-qqbot'): Promise<SetupCredentials
       console.error('[im-qqbot] @tencent-connect/qqbot-connector 未安装，无法扫码绑定');
       console.error('[im-qqbot] 请通过环境变量配置:');
       console.error('  export QQBOT_APPID="你的AppID"');
-      console.error('  export QQBOT_SECRET="你的AppSecret"');
+      console.error('  export QQBOT_APPSECRET="你的AppSecret"');
     } else {
       console.error(`[im-qqbot] 扫码绑定失败: ${msg}`);
     }
@@ -186,10 +186,10 @@ function printEnvInstructions(credentials: SetupCredentials): void {
   if (process.platform === 'win32') {
     // Windows CMD 语法（PowerShell 请用 $env:QQBOT_APPID="xxx"）
     console.log(`  set QQBOT_APPID=${credentials.appId}`);
-    console.log(`  set QQBOT_SECRET=${credentials.appSecret}`);
+    console.log(`  set QQBOT_APPSECRET=${credentials.appSecret}`);
   } else {
     console.log(`  export QQBOT_APPID="${credentials.appId}"`);
-    console.log(`  export QQBOT_SECRET="${credentials.appSecret}"`);
+    console.log(`  export QQBOT_APPSECRET="${credentials.appSecret}"`);
   }
 }
 

@@ -16,7 +16,8 @@ npx @deepseek-ai/dsh --profile qqbot
 | 配置 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `appId` | string | 必填 | QQ Bot AppID（或 `QQBOT_APPID` 环境变量） |
-| `appSecret` | string | 必填 | QQ Bot AppSecret（或 `QQBOT_SECRET` 环境变量） |
+| `appSecret` | string | 必填 | QQ Bot AppSecret（或 `QQBOT_APPSECRET` 环境变量） |
+| `cwd` | string | `process.cwd()` | Agent 工作目录（或 `QQBOT_CWD` 环境变量） |
 | `provider` | string | `deepseek-official` | LLM 提供商 |
 | `model` | string | `deepseek-chat` | 模型名称 |
 | `requireMention` | boolean | `true` | 群聊是否需要 @bot 才触发 |

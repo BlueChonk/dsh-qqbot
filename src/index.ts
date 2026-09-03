@@ -28,7 +28,8 @@ export async function apply(ctx: Context, config: ImQQBotConfig): Promise<void> 
   console.log('[im-qqbot] apply() called');
 
   let appId = resolveEnv(config.appId, 'QQBOT_APPID');
-  let appSecret = resolveEnv(config.appSecret, 'QQBOT_SECRET');
+  let appSecret = resolveEnv(config.appSecret, 'QQBOT_APPSECRET');
+  const cwd = resolveEnv(config.cwd ?? '', 'QQBOT_CWD') || process.cwd();
 
   // ── 凭据缺失时唤起扫码绑定 ──
   if (!appId || !appSecret) {
@@ -42,7 +43,7 @@ export async function apply(ctx: Context, config: ImQQBotConfig): Promise<void> 
 
     // 写入环境变量（供热更新后的下次 apply 或本次直接启动读取）
     process.env.QQBOT_APPID = credentials.appId;
-    process.env.QQBOT_SECRET = credentials.appSecret;
+    process.env.QQBOT_APPSECRET = credentials.appSecret;
     appId = credentials.appId;
     appSecret = credentials.appSecret;
 
@@ -57,7 +58,7 @@ export async function apply(ctx: Context, config: ImQQBotConfig): Promise<void> 
     logger.warn('凭据未能持久化，本次进程将使用环境变量凭据启动（重启后需重新绑定）');
   }
 
-  const resolvedConfig: ImQQBotConfig = { ...config, appId, appSecret };
+  const resolvedConfig: ImQQBotConfig = { ...config, appId, appSecret, cwd };
 
   await bootstrapGateway(ctx, agents, resolvedConfig, logger);
 }
