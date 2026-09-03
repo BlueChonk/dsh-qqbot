@@ -5,6 +5,7 @@
  * 网关组装（中间件编排 + 事件 + 出站 + 生命周期）见 src/gateway/。
  */
 import type { Context } from '@deepseek-ai/cordis';
+import Schema from '@deepseek-ai/schemastery';
 import { ConfigSchema, type ImQQBotConfig } from './config.ts';
 import { bootstrapGateway } from './gateway/index.ts';
 import type { DshAgentRegistry } from './session/index.ts';
@@ -15,7 +16,7 @@ import type { Logger } from './types.ts';
 // ── Cordis 插件元数据 ──
 export const name = 'im-qqbot';
 export const inject = ['agents'];
-export const Config = ConfigSchema;
+export const Config: Schema<ImQQBotConfig> = ConfigSchema;
 
 export type { ImQQBotConfig } from './config.ts';
 
