@@ -29,4 +29,6 @@
           c2cAllow: []
           groupMode: open
           groupAllow: []
+        showToolSuccess: true
+        showToolError: false
         debug: false
