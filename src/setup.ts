@@ -71,7 +71,7 @@ export async function runQrSetup(source = 'dsh-qqbot'): Promise<SetupCredentials
       console.error('[im-qqbot] 扫码未返回有效凭据');
       return null;
     }
-    console.log(`\n✔ 绑定成功！AppID: ${cred.appId}\n`);
+    console.log(`\n 绑定成功！AppID: ${cred.appId}\n`);
 
     return {
       appId: cred.appId,
@@ -148,7 +148,7 @@ export function persistCredentialsToProfile(
     const output = `# QQ Bot 凭据（扫码绑定自动生成）\n${yaml.dump(entries)}`;
     mkdirSync(dir, { recursive: true });
     writeFileSync(patchPath, output, 'utf8');
-    log.info(`✔ 凭据已写入: ${patchPath}`);
+    log.info(` 凭据已写入: ${patchPath}`);
     log.info(`  下次启动将自动使用保存的凭据`);
     return true;
   } catch (err) {

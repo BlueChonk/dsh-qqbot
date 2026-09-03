@@ -33,7 +33,7 @@ export function helpCommand(
         return out;
       };
 
-      const lines: string[] = ['### 🤖 QQBot 指令', ''];
+      const lines: string[] = ['###  QQBot 指令', ''];
 
       if (agentCmds.length > 0) {
         lines.push('**通用能力**', '', ...render(agentCmds), '');

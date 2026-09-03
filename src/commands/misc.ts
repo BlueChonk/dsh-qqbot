@@ -13,7 +13,7 @@ export function pingCommand(): CategorizedCommand {
     name: 'bot-ping',
     category: 'qqbot',
     description: '连通性测试',
-    handler: () => 'pong 🏓',
+    handler: () => 'pong ',
   };
 }
 
@@ -49,7 +49,7 @@ export function stopCommand({ manager }: CommandDeps): CategorizedCommand {
       // cancel 会让当前轮以 turn/end (kind=interrupted) 收尾，
       // 出站侧据此 flush 已生成的文本并关闭流式会话。
       record.agent.cancel({ kind: 'user' });
-      return '已中止 ⛔';
+      return '已中止 ';
     },
   };
 }

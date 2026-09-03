@@ -26,7 +26,7 @@ export function modelCommand({ manager, config }: CommandDeps): CategorizedComma
         }
 
         const lines: string[] = [
-          '### 🤖 模型配置',
+          '###  模型配置',
           '',
           `**当前模型:** ${currentDisplay}`,
         ];
@@ -66,7 +66,7 @@ export function modelCommand({ manager, config }: CommandDeps): CategorizedComma
       }
 
       await manager.setModelOverride(scope, peerId, { provider, model });
-      return `✅ 模型已切换: ${provider}/${model}\n立即生效，对话上下文保留。`;
+      return ` 模型已切换: ${provider}/${model}\n立即生效，对话上下文保留。`;
     },
   };
 }

@@ -16,7 +16,7 @@ export function statusCommand({ manager }: CommandDeps): CategorizedCommand {
       if (!status.active) return '当前无活跃会话';
       const modelInfo = status.model ? `${status.provider}/${status.model}` : '宿主默认';
       return [
-        '📊 会话状态',
+        ' 会话状态',
         `会话: ${status.sessionId ? status.sessionId.slice(0, 8) : '—'}`,
         `模型: ${modelInfo}`,
         `Preset: ${status.preset ?? '无'}`,

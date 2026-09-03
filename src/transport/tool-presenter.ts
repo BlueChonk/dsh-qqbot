@@ -45,7 +45,7 @@ export function formatToolResult(
 ): string | null {
   // 1. 错误优先：始终展示
   if (data.error) {
-    return `❌ 工具 \`${name}\` 执行失败\n\`${data.error.name}: ${data.error.code}\``;
+    return ` 工具 \`${name}\` 执行失败\n\`${data.error.name}: ${data.error.code}\``;
   }
 
   // 2. 尝试工具自定义视图（presentResult）
@@ -60,7 +60,7 @@ export function formatToolResult(
   const result = block !== undefined && block.type === 'tool-result' ? textOf(block.content) : '';
   if (!result) return null;
 
-  return `🔧 \`${name}\` 完成\n${truncate(result)}`;
+  return ` \`${name}\` 完成\n${truncate(result)}`;
 }
 
 /** 调用工具自定义 presentResult，失败/不可用时返回 undefined */
@@ -91,7 +91,7 @@ function presentResultView(
 
 /** 将结构化视图渲染为 Markdown */
 function renderView(name: string, view: ToolResultView): string | null {
-  const header = `🔧 \`${name}\` 完成`;
+  const header = ` \`${name}\` 完成`;
 
   switch (view.card) {
     case 'terminal': {

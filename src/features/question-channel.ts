@@ -307,7 +307,7 @@ export class QuestionChannel {
     this.pending.delete(key);
     this.removeAbort(entry);
     entry.timer = undefined;
-    void this.sender.sendMarkdown(entry.record.replyTarget, '⚠️ 提问已超时，未收到回答。').catch(() => {});
+    void this.sender.sendMarkdown(entry.record.replyTarget, ' 提问已超时，未收到回答。').catch(() => {});
     entry.reject(new QuestionChannelError('ask_user_question timed out before the user answered', ASK_ABORTED));
   }
 

@@ -18,7 +18,7 @@ export function newCommand({ manager }: CommandDeps): CategorizedCommand {
     handler: (cmdCtx) => {
       const { scope, peerId } = getScopePeer(cmdCtx);
       void manager.remove(scope, peerId);
-      return '已开启新会话 ✓';
+      return '已开启新会话 ';
     },
   };
 }
@@ -35,7 +35,7 @@ export function compactCommand({ manager }: CommandDeps): CategorizedCommand {
 
       if (outcome.ok) {
         if (!outcome.shadowed) return '没有可压缩的历史';
-        return `✅ 已压缩 ${outcome.shadowed} 条历史记录（约 ${outcome.tokens ?? 0} tokens）`;
+        return ` 已压缩 ${outcome.shadowed} 条历史记录（约 ${outcome.tokens ?? 0} tokens）`;
       }
 
       switch (outcome.reason) {

@@ -25,7 +25,7 @@ export function presetCommand({ manager, config }: CommandDeps): CategorizedComm
         const record = manager.getSessionRecord(scope, peerId);
         const currentId = record?.agentPreset ?? manager.getEffectivePreset(scope, peerId);
 
-        const lines: string[] = ['### 🧩 Agent Preset', ''];
+        const lines: string[] = ['###  Agent Preset', ''];
         lines.push(`**当前:** ${currentId ?? '默认'}`);
         lines.push('', '**可用 preset（点击切换）:**');
         for (const p of presets) {
@@ -41,7 +41,7 @@ export function presetCommand({ manager, config }: CommandDeps): CategorizedComm
       // reset / default：清除 per-peer 覆盖，回到默认
       if (args === 'reset' || args === 'default') {
         const outcome = await manager.clearPresetOverride(scope, peerId);
-        return outcome.ok ? '✅ 已重置为默认 preset（新会话生效）' : '重置失败';
+        return outcome.ok ? ' 已重置为默认 preset（新会话生效）' : '重置失败';
       }
 
       // 切换到指定 preset
@@ -59,7 +59,7 @@ export function presetCommand({ manager, config }: CommandDeps): CategorizedComm
         }
       }
 
-      return `✅ preset 已切换: ${args}\n新会话生效（当前会话保持原 preset，发送 /new 后生效）。`;
+      return ` preset 已切换: ${args}\n新会话生效（当前会话保持原 preset，发送 /new 后生效）。`;
     },
   };
 }

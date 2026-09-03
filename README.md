@@ -1,6 +1,6 @@
 <div align="center">
 
-<img width="120" src="https://img.shields.io/badge/🤖-QQ_Bot-blue?style=for-the-badge" alt="QQ Bot" />
+<img width="120" src="https://img.shields.io/badge/-QQ_Bot-blue?style=for-the-badge" alt="QQ Bot" />
 
 **基于 [deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) (dsh) 的 QQ Bot 插件，将 DeepSeek AI 助手接入 QQ 私聊与群聊。**
 

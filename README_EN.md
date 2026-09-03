@@ -1,6 +1,6 @@
 <div align="center">
 
-<img width="120" src="https://img.shields.io/badge/🤖-QQ_Bot-blue?style=for-the-badge" alt="QQ Bot" />
+<img width="120" src="https://img.shields.io/badge/-QQ_Bot-blue?style=for-the-badge" alt="QQ Bot" />
 
 **A QQ Bot plugin for [deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) (dsh), connecting DeepSeek AI assistants to QQ private and group chats.**
 

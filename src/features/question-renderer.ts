@@ -29,7 +29,7 @@ export function buildKeyboard(question: UserQuestion): InlineKeyboard | undefine
           id: `q-${question.id}-opt-${idx}`,
           render_data: {
             label: buttonLabel(o.label),
-            visited_label: '✓ 已选',
+            visited_label: ' 已选',
             style: 1,
           },
           action: {
@@ -72,11 +72,11 @@ export function formatQuestion(
     lines.push('');
     const mention = requireMentionHint ? '（需 @机器人）' : '';
     if (withButtons) {
-      lines.push(`> 👇 点击下方按钮选择，或回复编号${mention}`);
+      lines.push(`>  点击下方按钮选择，或回复编号${mention}`);
     } else if (multi) {
-      lines.push(`> 💡 回复多个编号即可多选（如 1,3）${mention}，或直接输入你的想法`);
+      lines.push(`>  回复多个编号即可多选（如 1,3）${mention}，或直接输入你的想法`);
     } else {
-      lines.push(`> 💡 回复编号选择${mention}，或直接输入你的想法`);
+      lines.push(`>  回复编号选择${mention}，或直接输入你的想法`);
     }
   }
 

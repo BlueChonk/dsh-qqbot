@@ -9,8 +9,8 @@ import { encodeButtonData } from './button-utils.ts';
 
 /** 把审批请求渲染成 QQ 文本（含被 gate 的命令回显） */
 export function buildApprovalText(request: ApprovalRequest, command?: string): string {
-  const lines: string[] = ['🔐 **执行审批**', ''];
-  lines.push(`🔧 工具: ${request.toolName}`);
+  const lines: string[] = [' **执行审批**', ''];
+  lines.push(` 工具: ${request.toolName}`);
   if (command) {
     lines.push('');
     lines.push('```');
@@ -19,10 +19,10 @@ export function buildApprovalText(request: ApprovalRequest, command?: string): s
   }
   if (request.reason) {
     lines.push('');
-    lines.push(`📝 ${request.reason}`);
+    lines.push(` ${request.reason}`);
   }
   lines.push('');
-  lines.push('> 👇 点击下方按钮确认是否允许执行');
+  lines.push('>  点击下方按钮确认是否允许执行');
   return lines.join('\n');
 }
 
@@ -36,7 +36,7 @@ export function buildApprovalText(request: ApprovalRequest, command?: string): s
 export function buildApprovalKeyboard(): InlineKeyboard {
   const allow = {
     id: 'approval-allow',
-    render_data: { label: '✅ 允许一次', visited_label: '✓ 已允许', style: 1 },
+    render_data: { label: ' 允许一次', visited_label: ' 已允许', style: 1 },
     action: {
       type: 1,
       permission: { type: 2 },
@@ -47,7 +47,7 @@ export function buildApprovalKeyboard(): InlineKeyboard {
   };
   const deny = {
     id: 'approval-deny',
-    render_data: { label: '❌ 拒绝', visited_label: '✓ 已拒绝', style: 0 },
+    render_data: { label: ' 拒绝', visited_label: ' 已拒绝', style: 0 },
     action: {
       type: 1,
       permission: { type: 2 },

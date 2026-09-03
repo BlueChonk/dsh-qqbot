@@ -72,19 +72,19 @@ describe('formatQuestion', () => {
     const text = formatQuestion(q, false, false);
     expect(text).toContain('1. A · 描述A');
     expect(text).toContain('2. B');
-    expect(text).toContain('> 💡 回复编号选择');
+    expect(text).toContain('>  回复编号选择');
     expect(text).toContain('直接输入你的想法');
   });
 
   it('uses button hint with emoji when withButtons', () => {
-    expect(formatQuestion(q2(), false, true)).toContain('> 👇 点击下方按钮选择');
+    expect(formatQuestion(q2(), false, true)).toContain('>  点击下方按钮选择');
   });
 
   it('prefixes multi-select marker and multi-pick hint', () => {
     const q: UserQuestion = { id: 'q', question: '选哪些？', options: [{ label: 'A' }, { label: 'B' }], multiSelect: true };
     const text = formatQuestion(q, false, false);
     expect(text).toContain('选哪些？（可多选）');
-    expect(text).toContain('> 💡 回复多个编号即可多选（如 1,3）');
+    expect(text).toContain('>  回复多个编号即可多选（如 1,3）');
   });
 
   it('adds @mention note for groups', () => {
@@ -105,7 +105,7 @@ describe('buildKeyboard', () => {
     // 保留 click_limit=1（每人限点一次，与 openclaw 对齐）
     expect(btn?.action.click_limit).toBe(1);
     expect(btn?.render_data.label).toBe('A');
-    expect(btn?.render_data.visited_label).toBe('✓ 已选');
+    expect(btn?.render_data.visited_label).toBe(' 已选');
     // button_data 同时编码 question.id 与选项下标，供 handleInteraction 校验归属题
     expect(btn?.id).toBe('q-q-opt-0');
     expect(JSON.parse(btn!.action.data)).toEqual({ t: 'question', q: 'q', i: 0 });
