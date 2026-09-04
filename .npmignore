@@ -1,7 +1,0 @@
-dev.ts
-cordis.dev.yml
-.env
-.env.example
-.dsh-sessions/
-*.tsbuildinfo
-node_modules/
