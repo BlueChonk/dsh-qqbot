@@ -12,7 +12,7 @@ import { getScopePeer } from '../shared/index.ts';
 /** /new（别名 /reset /clear）— 开始新会话 */
 export function newCommand({ manager }: CommandDeps): CategorizedCommand {
   return {
-    name: ['new', 'reset', 'clear'],
+    name: 'new',
     category: 'agent',
     description: '开始新会话（清空上下文）',
     handler: (cmdCtx) => {

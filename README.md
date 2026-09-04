@@ -29,7 +29,7 @@ dsh --profile qqbot
 
 | 命令 | 说明 |
 |------|------|
-| `/new`（`/reset` `/clear`） | 开始新会话 |
+| `/new` | 开始新会话 |
 | `/compact` | 压缩会话历史 |
 | `/model` | 查看或切换模型 |
 | `/preset` | 查看或切换 agent preset |

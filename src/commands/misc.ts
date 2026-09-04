@@ -37,7 +37,6 @@ export function stopCommand({ manager }: CommandDeps): CategorizedCommand {
     name: 'stop',
     category: 'agent',
     description: '中止当前生成',
-    hidden: true,
     handler: (cmdCtx) => {
       const { scope, peerId } = getScopePeer(cmdCtx);
       const record = manager.getSessionRecord(scope, peerId);
