@@ -104,7 +104,8 @@
     requireMention: true
     textChunkLimit: 4500
     sessionIdleTimeout: 1800000
-    showToolResults: false
+    showToolSuccess: true
+    showToolError: false
     debug: false
     vision:
       enabled: false
