@@ -1,12 +1,12 @@
-# dsh-qqbot
+# @BlueChonk/dsh-qqbot
 
 基于 [deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) (dsh) 的 QQ Bot 插件，将 DeepSeek AI 助手接入 QQ 私聊与群聊。
 
 ## 安装
 
 ```bash
-npx @deepseek-ai/dsh plugin --profile qqbot add "github:BlueChonk/dsh-qqbot"
-npx @deepseek-ai/dsh --profile qqbot
+dsh plugin --profile qqbot add "github:BlueChonk/dsh-qqbot"
+dsh --profile qqbot
 ```
 
 首次启动未配置凭据时，自动进入扫码引导：终端输出二维码 → 手机 QQ 扫码绑定 → 凭据自动保存到 profile，后续启动无需再次扫码。
@@ -17,7 +17,7 @@ npx @deepseek-ai/dsh --profile qqbot
 |------|------|--------|------|
 | `appId` | string | 必填 | QQ Bot AppID（或 `QQBOT_APPID` 环境变量） |
 | `appSecret` | string | 必填 | QQ Bot AppSecret（或 `QQBOT_APPSECRET` 环境变量） |
-| `cwd` | string | `process.cwd()` | Agent 工作目录（或 `QQBOT_CWD` 环境变量） |
+| `cwd` | string | `process.cwd()` | Agent 工作目录（或 `DSH_CWD` 环境变量） |
 | `provider` | string | `deepseek-official` | LLM 提供商 |
 | `model` | string | `deepseek-chat` | 模型名称 |
 | `requireMention` | boolean | `true` | 群聊是否需要 @bot 才触发 |
@@ -34,10 +34,10 @@ npx @deepseek-ai/dsh --profile qqbot
 | `/model` | 查看或切换模型 |
 | `/preset` | 查看或切换 agent preset |
 | `/stop` | 中止当前生成 |
-| `/bot-ping` | 连通性测试 |
-| `/bot-version` | 查看版本信息 |
-| `/bot-status` | 查看当前会话状态 |
-| `/bot-help` | 查看所有指令 |
+| `/ping` | 连通性测试 |
+| `/version` | 查看版本信息 |
+| `/status` | 查看当前会话状态 |
+| `/help` | 查看所有指令 |
 
 ## 开发
 
