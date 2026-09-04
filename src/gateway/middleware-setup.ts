@@ -84,7 +84,7 @@ export function setupMiddlewares(
 
   // 8. 斜杠命令（在 concurrencyGuard 之前，命令匹配后不排队直接响应）
   const slash = slashCommand({
-    // 关闭 autoHelp：help 命令由 qqbot 注册为 /bot-help，
+    // 关闭 autoHelp：help 命令由 qqbot 注册为 /help，
     // 避免 SDK 再自动注册一个无前缀的 /help 造成重复
     autoHelp: false,
     commands: buildCommandList({ manager, config }),

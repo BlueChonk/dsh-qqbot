@@ -104,6 +104,12 @@ const PRIVATE_RANGES: Array<[netmask: bigint, prefix: number]> = [
   [0xE0000000n, 4], // 224.0.0.0/4 (multicast)
 ];
 
+/** 代理 Fake IP 范围（Clash/V2Ray 等代理软件的本地 DNS 映射） */
+const PROXY_FAKE_RANGES: Array<[netmask: bigint, prefix: number]> = [
+  [0xAC100000n, 12], // 172.16.0.0/12（Clash 默认 Fake IP 段，含 172.29.x.x）
+  [0x64400000n, 10], // 100.64.0.0/10（部分代理使用的 CGNAT 段）
+];
+
 function ipToBigInt(ip: string): bigint {
   return ip.split('.').reduce((acc, octet) => (acc << 8n) | BigInt(Number(octet)), 0n);
 }
@@ -115,31 +121,45 @@ function isPrivateIP(ip: string): boolean {
   );
 }
 
-/** 解析 hostname 并阻断指向私有/内网地址的 URL（SSRF 防护） */
+/** 检查是否为代理 Fake IP（允许通过 SSRF 检查） */
+function isProxyFakeIP(ip: string): boolean {
+  const val = ipToBigInt(ip);
+  return PROXY_FAKE_RANGES.some(
+    ([mask, prefix]) => (val >> (32n - BigInt(prefix))) === (mask >> (32n - BigInt(prefix))),
+  );
+}
+
+/** 解析 hostname 并阻断指向私有/内网地址的 URL（SSRF 防护，放行代理 Fake IP） */
 async function assertSafeHostname(hostname: string): Promise<void> {
-  const addresses = await dns.promises.resolve4(hostname).catch(() => []);
-  if (addresses.length === 0) throw new Error(`DNS resolution failed: ${hostname}`);
-  for (const addr of addresses) {
-    if (isPrivateIP(addr)) throw new Error(`SSRF blocked: ${hostname} resolves to private IP ${addr}`);
+  const addresses = await dns.promises.lookup(hostname, 4).catch(() => null);
+  if (!addresses) throw new Error(`DNS resolution failed: ${hostname}`);
+  const addr = typeof addresses === 'string' ? addresses : addresses.address;
+  if (isPrivateIP(addr) && !isProxyFakeIP(addr)) {
+    throw new Error(`SSRF blocked: ${hostname} resolves to private IP ${addr}`);
   }
 }
 
 /** 安全下载：仅 HTTPS + SSRF 防护 + 大小上限 + 超时，返回下载字节数 */
 async function download(url: string, destPath: string, maxBytes: number): Promise<number> {
   const parsed = new URL(normalizeUrl(url));
+  console.log('[download] url:', url.slice(0, 100), 'protocol:', parsed.protocol);
   if (parsed.protocol !== 'https:') {
     throw new Error(`Only HTTPS allowed: ${parsed.protocol}`);
   }
   await assertSafeHostname(parsed.hostname);
+  console.log('[download] SSRF check passed, starting fetch...');
 
   const resp = await fetch(url, { signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS) });
+  console.log('[download] fetch status:', resp.status, 'headers:', Object.fromEntries(resp.headers.entries()));
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
 
   const buf = Buffer.from(await resp.arrayBuffer());
+  console.log('[download] received bytes:', buf.length);
   if (buf.length > maxBytes) {
     throw new Error(`Download exceeds ${Math.floor(maxBytes / 1024 / 1024)}MB`);
   }
   writeFileSync(destPath, buf);
+  console.log('[download] written to:', destPath);
   return buf.length;
 }
 
@@ -154,23 +174,28 @@ export async function downloadMediaAttachments(
   media: MediaConfig,
   logger: Logger,
 ): Promise<DownloadedFile[]> {
+  console.log('[dl] media.enabled:', media.enabled);
   if (!media.enabled) return [];
 
   const targets = (attachments ?? []).filter(a =>
     classifyContentType(a.content_type) !== 'voice' && a.url,
   );
+  console.log('[dl] targets count:', targets.length);
   if (targets.length === 0) return [];
 
   mkdirSync(MEDIA_ROOT, { recursive: true });
 
   const maxBytes = (media.maxMB ?? DEFAULT_MAX_MB) * 1024 * 1024;
+  console.log('[dl] maxBytes:', maxBytes, 'MEDIA_ROOT:', MEDIA_ROOT);
 
   const results: DownloadedFile[] = [];
   for (const att of targets) {
     const contentType = classifyContentType(att.content_type) as 'image' | 'video' | 'file';
     const localPath = toPosixPath(join(MEDIA_ROOT, uniqueFilename(att.filename)));
+    console.log('[dl] downloading:', att.filename, '→', localPath, 'size:', att.size, 'url:', att.url?.slice(0, 80));
 
     if (att.size > maxBytes) {
+      console.log('[dl] skip: too large', att.size, '>', maxBytes);
       logger.debug(`im-qqbot: skip download (${att.size}B too large): ${att.filename}`);
       continue; // 超限不下载，由 buildDynamicCtx 回退为描述
     }
@@ -178,7 +203,9 @@ export async function downloadMediaAttachments(
     let bytes: number;
     try {
       bytes = await download(att.url, localPath, maxBytes);
+      console.log('[dl] success:', att.filename, 'bytes:', bytes);
     } catch (err) {
+      console.log('[dl] FAILED:', att.filename, 'error:', err instanceof Error ? err.message : String(err));
       logger.warn(`im-qqbot: download failed: ${att.filename} — ${err instanceof Error ? err.message : String(err)}`);
       continue; // 下载失败不加入结果，由 buildDynamicCtx 回退为描述
     }

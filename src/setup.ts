@@ -122,8 +122,8 @@ export function persistCredentialsToProfile(
       entries = parsePatchEntries(readFileSync(patchPath, 'utf8'));
     }
 
-    // 2. 查找已有 im-qqbot 条目
-    const existing = entries.find((e) => e.id === 'im-qqbot');
+    // 2. 查找已有 dsh-qqbot 条目
+    const existing = entries.find((e) => e.id === 'dsh-qqbot');
 
     if (existing) {
       // 更新已有条目的 config
@@ -135,7 +135,7 @@ export function persistCredentialsToProfile(
     } else {
       // 追加新条目
       entries.push({
-        id: 'im-qqbot',
+        id: 'dsh-qqbot',
         config: {
           appId: credentials.appId,
           appSecret: credentials.appSecret,
@@ -198,7 +198,7 @@ function printYamlInstructions(credentials: SetupCredentials, patchPath: string)
   console.log('无法自动保存凭据，请手动打开以下文件添加配置:');
   console.log(`  ${patchPath}`);
   console.log('');
-  console.log('  - id: im-qqbot');
+  console.log('  - id: dsh-qqbot');
   console.log('    config:');
   console.log(`      appId: "${credentials.appId}"`);
   console.log(`      appSecret: "${credentials.appSecret}"`);

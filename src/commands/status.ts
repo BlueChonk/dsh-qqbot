@@ -1,13 +1,13 @@
 /**
- * 状态命令：/bot-status（QQBot 特有）
+ * 状态命令：/status（QQBot 特有）
  */
 import type { CommandDeps, CategorizedCommand } from './types.ts';
 import { getScopePeer, formatRelativeTime } from '../shared/index.ts';
 
-/** /bot-status — 查看当前会话状态 */
+/** /status — 查看当前会话状态 */
 export function statusCommand({ manager }: CommandDeps): CategorizedCommand {
   return {
-    name: 'bot-status',
+    name: 'status',
     category: 'qqbot',
     description: '查看当前会话状态',
     handler: (cmdCtx) => {

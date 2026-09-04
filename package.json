@@ -1,5 +1,5 @@
 {
-  "name": "@tencent-connect/dsh-qqbot",
+  "name": "@BlueChonk/dsh-qqbot",
   "version": "0.4.0",
   "description": "QQ Bot IM channel plugin for deepseek-harness (dsh)",
   "type": "module",
@@ -33,11 +33,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/tencent-connect/dsh-qqbot.git"
+    "url": "https://github.com/BlueChonk/dsh-qqbot.git"
   },
-  "homepage": "https://github.com/tencent-connect/dsh-qqbot#readme",
+  "homepage": "https://github.com/BlueChonk/dsh-qqbot#readme",
   "bugs": {
-    "url": "https://github.com/tencent-connect/dsh-qqbot/issues"
+    "url": "https://github.com/BlueChonk/dsh-qqbot/issues"
   },
   "dsh": {
     "bundle": {

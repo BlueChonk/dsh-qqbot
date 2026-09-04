@@ -93,8 +93,8 @@
     root: ./.dsh-sessions
 
 # ── QQ Bot IM 驱动 ──
-- id: im-qqbot
-  name: '@tencent-connect/dsh-qqbot'
+- id: dsh-qqbot
+  name: '@BlueChonk/dsh-qqbot'
   config:
     appId: ${QQBOT_APPID}
     appSecret: ${QQBOT_SECRET}

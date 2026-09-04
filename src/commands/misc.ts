@@ -1,26 +1,26 @@
 /**
  * 杂项命令
  *
- * - /bot-ping /bot-version：QQBot 插件特有（连通性测试、版本信息）
+ * - /ping /version：QQBot 插件特有（连通性测试、版本信息）
  * - /stop：中止当前生成（对应底层 agent cancel，通用能力）
  */
 import type { CommandDeps, CategorizedCommand } from './types.ts';
 import { getScopePeer, PLUGIN_VERSION } from '../shared/index.ts';
 
-/** /bot-ping — 连通性测试 */
+/** /ping — 连通性测试 */
 export function pingCommand(): CategorizedCommand {
   return {
-    name: 'bot-ping',
+    name: 'ping',
     category: 'qqbot',
     description: '连通性测试',
     handler: () => 'pong ',
   };
 }
 
-/** /bot-version — 查看版本信息 */
+/** /version — 查看版本信息 */
 export function versionCommand({ manager }: CommandDeps): CategorizedCommand {
   return {
-    name: 'bot-version',
+    name: 'version',
     category: 'qqbot',
     description: '查看版本信息',
     handler: () => {

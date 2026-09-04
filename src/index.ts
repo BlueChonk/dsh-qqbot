@@ -14,7 +14,7 @@ import { runQrSetup, persistCredentialsToProfile } from './setup.ts';
 import type { Logger } from './types.ts';
 
 // ── Cordis 插件元数据 ──
-export const name = 'im-qqbot';
+export const name = '@BlueChonk/dsh-qqbot';
 export const inject = ['agents'];
 export const Config: Schema<ImQQBotConfig> = ConfigSchema;
 
