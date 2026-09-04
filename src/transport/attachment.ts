@@ -142,24 +142,19 @@ async function assertSafeHostname(hostname: string): Promise<void> {
 /** 安全下载：仅 HTTPS + SSRF 防护 + 大小上限 + 超时，返回下载字节数 */
 async function download(url: string, destPath: string, maxBytes: number): Promise<number> {
   const parsed = new URL(normalizeUrl(url));
-  console.log('[download] url:', url.slice(0, 100), 'protocol:', parsed.protocol);
   if (parsed.protocol !== 'https:') {
     throw new Error(`Only HTTPS allowed: ${parsed.protocol}`);
   }
   await assertSafeHostname(parsed.hostname);
-  console.log('[download] SSRF check passed, starting fetch...');
 
   const resp = await fetch(url, { signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS) });
-  console.log('[download] fetch status:', resp.status, 'headers:', Object.fromEntries(resp.headers.entries()));
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
 
   const buf = Buffer.from(await resp.arrayBuffer());
-  console.log('[download] received bytes:', buf.length);
   if (buf.length > maxBytes) {
     throw new Error(`Download exceeds ${Math.floor(maxBytes / 1024 / 1024)}MB`);
   }
   writeFileSync(destPath, buf);
-  console.log('[download] written to:', destPath);
   return buf.length;
 }
 
@@ -174,40 +169,33 @@ export async function downloadMediaAttachments(
   media: MediaConfig,
   logger: Logger,
 ): Promise<DownloadedFile[]> {
-  console.log('[dl] media.enabled:', media.enabled);
   if (!media.enabled) return [];
 
   const targets = (attachments ?? []).filter(a =>
     classifyContentType(a.content_type) !== 'voice' && a.url,
   );
-  console.log('[dl] targets count:', targets.length);
   if (targets.length === 0) return [];
 
   mkdirSync(MEDIA_ROOT, { recursive: true });
 
   const maxBytes = (media.maxMB ?? DEFAULT_MAX_MB) * 1024 * 1024;
-  console.log('[dl] maxBytes:', maxBytes, 'MEDIA_ROOT:', MEDIA_ROOT);
 
   const results: DownloadedFile[] = [];
   for (const att of targets) {
     const contentType = classifyContentType(att.content_type) as 'image' | 'video' | 'file';
     const localPath = toPosixPath(join(MEDIA_ROOT, uniqueFilename(att.filename)));
-    console.log('[dl] downloading:', att.filename, '→', localPath, 'size:', att.size, 'url:', att.url?.slice(0, 80));
 
     if (att.size > maxBytes) {
-      console.log('[dl] skip: too large', att.size, '>', maxBytes);
       logger.debug(`im-qqbot: skip download (${att.size}B too large): ${att.filename}`);
-      continue; // 超限不下载，由 buildDynamicCtx 回退为描述
+      continue;
     }
 
     let bytes: number;
     try {
       bytes = await download(att.url, localPath, maxBytes);
-      console.log('[dl] success:', att.filename, 'bytes:', bytes);
     } catch (err) {
-      console.log('[dl] FAILED:', att.filename, 'error:', err instanceof Error ? err.message : String(err));
       logger.warn(`im-qqbot: download failed: ${att.filename} — ${err instanceof Error ? err.message : String(err)}`);
-      continue; // 下载失败不加入结果，由 buildDynamicCtx 回退为描述
+      continue;
     }
     logger.debug(`im-qqbot: attachment downloaded: ${att.filename} (${formatSize(bytes)}) → ${localPath}`);
 

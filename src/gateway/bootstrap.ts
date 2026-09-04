@@ -129,7 +129,7 @@ export async function bootstrapGateway(
   });
 
   bot.on('ready', () => {
-    console.log(`[im-qqbot] Bot ready! appId=${config.appId}`);
+    logger.info(`[im-qqbot] Bot ready! appId=${config.appId}`);
   });
 
   // ── 富媒体过期清理 ──

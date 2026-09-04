@@ -25,8 +25,6 @@ export async function apply(ctx: Context, config: ImQQBotConfig): Promise<void> 
   const agents = (ctx as unknown as Record<string, unknown>).agents as DshAgentRegistry;
   const logger: Logger = ((ctx as unknown as Record<string, unknown>).logger as Logger) ?? console;
 
-  console.log('[im-qqbot] apply() called');
-
   let appId = resolveEnv(config.appId, 'QQBOT_APPID');
   let appSecret = resolveEnv(config.appSecret, 'QQBOT_APPSECRET');
   const cwd = resolveEnv(config.cwd ?? '', 'QQBOT_CWD') || process.cwd();

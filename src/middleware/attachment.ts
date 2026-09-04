@@ -14,11 +14,7 @@ export function attachmentProcessor(config: ImQQBotConfig, logger: Logger) {
     const msg = ctx.message as { attachments?: RawAttachment[] };
 
     try {
-      // 当前消息附件
-      console.log('[mw-attachment] media.enabled:', config.media.enabled);
-      console.log('[mw-attachment] raw attachments:', JSON.stringify(msg.attachments, null, 2));
       const downloaded = await downloadMediaAttachments(msg.attachments, config.media, logger);
-      console.log('[mw-attachment] downloaded result:', downloaded);
       ctx.state.downloadedFiles = downloaded;
 
       // 引用消息附件：转成 RawAttachment 结构复用下载（voice 由 downloadMediaAttachments 自动跳过）
