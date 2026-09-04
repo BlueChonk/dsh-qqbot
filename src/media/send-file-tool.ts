@@ -86,7 +86,7 @@ export function registerSendFileTool(
 ): void {
   const tools = ctx.get('tools') as ToolsRegistryLike | undefined;
   if (!tools?.register) {
-    logger.warn('im-qqbot: tools 服务不可用，qqbot_send_file 工具未注册');
+    logger.warn('dsh-qqbot: tools 服务不可用，qqbot_send_file 工具未注册');
     return;
   }
 
@@ -177,7 +177,7 @@ export function registerSendFileTool(
         result = await bot.sendFile(replyTarget, source, { fileName });
       }
 
-      logger.info(`im-qqbot: qqbot_send_file 发送 ${fileName} (${info.size} bytes) → ${replyTarget.scope}:${replyTarget.targetId}`);
+      logger.info(`dsh-qqbot: qqbot_send_file 发送 ${fileName} (${info.size} bytes) → ${replyTarget.scope}:${replyTarget.targetId}`);
 
       return {
         fileName,
@@ -190,5 +190,5 @@ export function registerSendFileTool(
   };
 
   tools.register(definition);
-  logger.info('im-qqbot: qqbot_send_file 工具已注册');
+  logger.info('dsh-qqbot: qqbot_send_file 工具已注册');
 }

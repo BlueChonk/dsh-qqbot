@@ -62,13 +62,13 @@ export async function runQrSetup(source = 'dsh-qqbot'): Promise<SetupCredentials
     });
 
     if (!credentials || credentials.length === 0) {
-      console.error('[im-qqbot] 扫码未返回凭据');
+      console.error('[dsh-qqbot] 扫码未返回凭据');
       return null;
     }
 
     const cred = credentials[0];
     if (!cred) {
-      console.error('[im-qqbot] 扫码未返回有效凭据');
+      console.error('[dsh-qqbot] 扫码未返回有效凭据');
       return null;
     }
     console.log(`\n 绑定成功！AppID: ${cred.appId}\n`);
@@ -81,12 +81,12 @@ export async function runQrSetup(source = 'dsh-qqbot'): Promise<SetupCredentials
     const msg = err instanceof Error ? err.message : String(err);
 
     if (msg.includes('Cannot find') || msg.includes('ERR_MODULE_NOT_FOUND')) {
-      console.error('[im-qqbot] @tencent-connect/qqbot-connector 未安装，无法扫码绑定');
-      console.error('[im-qqbot] 请通过环境变量配置:');
+      console.error('[dsh-qqbot] @tencent-connect/qqbot-connector 未安装，无法扫码绑定');
+      console.error('[dsh-qqbot] 请通过环境变量配置:');
       console.error('  export QQBOT_APPID="你的AppID"');
       console.error('  export QQBOT_APPSECRET="你的AppSecret"');
     } else {
-      console.error(`[im-qqbot] 扫码绑定失败: ${msg}`);
+      console.error(`[dsh-qqbot] 扫码绑定失败: ${msg}`);
     }
 
     return null;
@@ -96,7 +96,7 @@ export async function runQrSetup(source = 'dsh-qqbot'): Promise<SetupCredentials
 /**
  * 将凭据写入 dsh profile 的 cordis.patch.yml
  *
- * 用 js-yaml 解析现有文件后更新/追加 im-qqbot 条目，再 dump 写回，
+ * 用 js-yaml 解析现有文件后更新/追加 dsh-qqbot 条目，再 dump 写回，
  * 保证输出始终是合法 YAML。文件不存在或为空时安全重建；
  * 解析失败或结构异常时拒绝写入、保留原文件（避免覆盖用户其他配置）。
  */

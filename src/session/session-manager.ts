@@ -455,7 +455,7 @@ export class SessionManager {
       };
     } catch (err) {
       this.logger.warn(
-        `im-qqbot: preset ${presetId ?? '(default)'} unavailable: ${err instanceof Error ? err.message : String(err)} — using host composition`,
+        `dsh-qqbot: preset ${presetId ?? '(default)'} unavailable: ${err instanceof Error ? err.message : String(err)} — using host composition`,
       );
       return {};
     }

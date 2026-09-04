@@ -174,7 +174,7 @@ class OutboundRouter {
       void this.send(record, ` 本轮异常结束\n\`${failure.code}\`: ${failure.message}`, 'sendTurnEndError');
     }
 
-    this.logger.debug(`im-qqbot: turn/end sessionId=${sessionId}`);
+    this.logger.debug(`dsh-qqbot: turn/end sessionId=${sessionId}`);
   }
 
   /** 统一发送：切分 + 逐 chunk 发送 + 错误记录 */
@@ -184,7 +184,7 @@ class OutboundRouter {
       try {
         await this.bot.sendMarkdown(record.replyTarget, chunk);
       } catch (err) {
-        this.logger.error(`im-qqbot: ${tag} failed: ${err instanceof Error ? err.message : String(err)}`);
+        this.logger.error(`dsh-qqbot: ${tag} failed: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
   }

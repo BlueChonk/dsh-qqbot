@@ -32,7 +32,7 @@ export function attachmentProcessor(config: ImQQBotConfig, logger: Logger) {
         ctx.state.downloadedQuoteFiles = downloadedQuote;
       }
     } catch (err) {
-      logger.warn(`im-qqbot: attachment download failed: ${err instanceof Error ? err.message : String(err)}`);
+      logger.warn(`dsh-qqbot: attachment download failed: ${err instanceof Error ? err.message : String(err)}`);
     }
 
     await next();

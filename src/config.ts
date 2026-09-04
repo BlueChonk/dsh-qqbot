@@ -1,5 +1,5 @@
 /**
- * dsh-im-qqbot 插件配置 Schema
+ * dsh-dsh-qqbot 插件配置 Schema
  */
 import Schema from '@deepseek-ai/schemastery';
 

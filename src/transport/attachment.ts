@@ -186,7 +186,7 @@ export async function downloadMediaAttachments(
     const localPath = toPosixPath(join(MEDIA_ROOT, uniqueFilename(att.filename)));
 
     if (att.size > maxBytes) {
-      logger.debug(`im-qqbot: skip download (${att.size}B too large): ${att.filename}`);
+      logger.debug(`dsh-qqbot: skip download (${att.size}B too large): ${att.filename}`);
       continue;
     }
 
@@ -194,10 +194,10 @@ export async function downloadMediaAttachments(
     try {
       bytes = await download(att.url, localPath, maxBytes);
     } catch (err) {
-      logger.warn(`im-qqbot: download failed: ${att.filename} — ${err instanceof Error ? err.message : String(err)}`);
+      logger.warn(`dsh-qqbot: download failed: ${att.filename} — ${err instanceof Error ? err.message : String(err)}`);
       continue;
     }
-    logger.debug(`im-qqbot: attachment downloaded: ${att.filename} (${formatSize(bytes)}) → ${localPath}`);
+    logger.debug(`dsh-qqbot: attachment downloaded: ${att.filename} (${formatSize(bytes)}) → ${localPath}`);
 
     results.push({ filename: att.filename, contentType, localPath });
   }

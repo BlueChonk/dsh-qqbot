@@ -79,7 +79,7 @@ export class OutboundBuffer {
         await this.bot.sendMarkdown(this.record.replyTarget, chunk);
       }
     } catch (err) {
-      this.logger.error(`im-qqbot: flush failed: ${err instanceof Error ? err.message : String(err)}`);
+      this.logger.error(`dsh-qqbot: flush failed: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       this.buffer = '';
       this.flushing = false;

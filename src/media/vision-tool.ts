@@ -125,7 +125,7 @@ async function callVision(
       { type: 'image', attachment: imageRef },
       { type: 'text', text: prompt },
     ],
-    source: { kind: 'plugin', plugin: 'dsh-im-qqbot' },
+    source: { kind: 'plugin', plugin: 'dsh-dsh-qqbot' },
   });
 
   const options: GenerateOptions = {
@@ -196,7 +196,7 @@ export function ensureVisionInputModal(vision: VisionConfig, logger: Logger): vo
     const provider = piAi?.providers?.[vision.provider] as { models?: unknown } | undefined;
     const models = provider?.models;
     if (!Array.isArray(models)) {
-      logger.warn(`im-qqbot: settings.yaml 未找到 llm-pi-ai.providers.${vision.provider}.models，请手动确认 vision 模型已声明 image 输入`);
+      logger.warn(`dsh-qqbot: settings.yaml 未找到 llm-pi-ai.providers.${vision.provider}.models，请手动确认 vision 模型已声明 image 输入`);
       return;
     }
 
@@ -205,7 +205,7 @@ export function ensureVisionInputModal(vision: VisionConfig, logger: Logger): vo
         typeof m === 'object' && m !== null && (m as Record<string, unknown>).id === vision.model,
     );
     if (model === undefined) {
-      logger.warn(`im-qqbot: settings.yaml 未找到 vision 模型 ${vision.model}，请手动确认已声明 image 输入`);
+      logger.warn(`dsh-qqbot: settings.yaml 未找到 vision 模型 ${vision.model}，请手动确认已声明 image 输入`);
       return;
     }
 
@@ -214,9 +214,9 @@ export function ensureVisionInputModal(vision: VisionConfig, logger: Logger): vo
 
     model.input = ['text', 'image'];
     writeFileSync(settingsPath, yaml.dump(doc), 'utf8');
-    logger.info(`im-qqbot: 已为 vision 模型补充 input: [text, image] (${vision.provider}/${vision.model})`);
+    logger.info(`dsh-qqbot: 已为 vision 模型补充 input: [text, image] (${vision.provider}/${vision.model})`);
   } catch (err) {
-    logger.warn(`im-qqbot: 检查 settings.yaml vision input 失败: ${err instanceof Error ? err.message : String(err)}`);
+    logger.warn(`dsh-qqbot: 检查 settings.yaml vision input 失败: ${err instanceof Error ? err.message : String(err)}`);
   }
 }
 
@@ -224,7 +224,7 @@ export function ensureVisionInputModal(vision: VisionConfig, logger: Logger): vo
 export function registerDescribeImageTool(ctx: Context, vision: VisionConfig, logger: Logger): void {
   if (!vision.enabled) return;
   if (!vision.provider || !vision.model) {
-    logger.warn('im-qqbot: vision.provider/model 未配置，qqbot_describe_image 工具未注册');
+    logger.warn('dsh-qqbot: vision.provider/model 未配置，qqbot_describe_image 工具未注册');
     return;
   }
 
@@ -232,7 +232,7 @@ export function registerDescribeImageTool(ctx: Context, vision: VisionConfig, lo
   const llm = ctx.get('llm') as LlmRuntimeLike | undefined;
   const attachments = ctx.get('attachments') as AttachmentStoreLike | undefined;
   if (!tools?.register || !llm?.stream || !attachments?.saveImage) {
-    logger.warn('im-qqbot: tools/llm/attachments 服务不可用，qqbot_describe_image 工具未注册');
+    logger.warn('dsh-qqbot: tools/llm/attachments 服务不可用，qqbot_describe_image 工具未注册');
     return;
   }
 
@@ -289,5 +289,5 @@ export function registerDescribeImageTool(ctx: Context, vision: VisionConfig, lo
   };
 
   tools.register(definition);
-  logger.info(`im-qqbot: qqbot_describe_image 工具已注册 (provider=${vision.provider} model=${vision.model})`);
+  logger.info(`dsh-qqbot: qqbot_describe_image 工具已注册 (provider=${vision.provider} model=${vision.model})`);
 }

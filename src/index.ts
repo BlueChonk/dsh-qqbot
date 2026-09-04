@@ -1,5 +1,5 @@
 /**
- * dsh-im-qqbot — QQ Bot IM channel plugin for deepseek-harness
+ * dsh-dsh-qqbot — QQ Bot IM channel plugin for deepseek-harness
  *
  * Cordis 插件入口。将 QQ 消息平台作为 dsh 的前端协议驱动。
  * 网关组装（中间件编排 + 事件 + 出站 + 生命周期）见 src/gateway/。

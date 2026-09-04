@@ -132,7 +132,7 @@ export class QuestionChannel {
     const uq = ctx.get('userQuestions') as UserQuestionsServiceLike | undefined;
     if (!uq || uq.__qqQuestionPatched) return;
     if (typeof uq.ask !== 'function') {
-      this.logger.warn('im-qqbot: userQuestions service lacks ask() — QQ question channel disabled');
+      this.logger.warn('dsh-qqbot: userQuestions service lacks ask() — QQ question channel disabled');
       return;
     }
 
@@ -146,7 +146,7 @@ export class QuestionChannel {
     };
     Object.defineProperty(uq, '__qqQuestionPatched', { value: true, configurable: true, enumerable: false });
     this.uq = uq;
-    this.logger.info('im-qqbot: QQ question channel installed');
+    this.logger.info('dsh-qqbot: QQ question channel installed');
   }
 
   public uninstall(): void {
@@ -252,7 +252,7 @@ export class QuestionChannel {
       }
       entry.timer = setTimeout(() => this.onTimeout(key), this.config.askTimeoutMs);
       this.pending.set(key, entry);
-      this.logger.info(`im-qqbot: question sent to QQ, waiting for answer key=${key}`);
+      this.logger.info(`dsh-qqbot: question sent to QQ, waiting for answer key=${key}`);
     });
   }
 
@@ -276,7 +276,7 @@ export class QuestionChannel {
     this.pending.delete(key);
     this.clearTimer(entry);
     this.removeAbort(entry);
-    this.logger.info(`im-qqbot: question answered via QQ key=${key}`);
+    this.logger.info(`dsh-qqbot: question answered via QQ key=${key}`);
     entry.resolve({ answers: entry.collected });
   }
 
@@ -290,13 +290,13 @@ export class QuestionChannel {
           await this.sender.sendMarkdown(record.replyTarget, formatQuestion(question, hint, true), { keyboard });
           return;
         } catch (err) {
-          this.logger.warn(`im-qqbot: keyboard send failed, fallback to text: ${err instanceof Error ? err.message : String(err)}`);
+          this.logger.warn(`dsh-qqbot: keyboard send failed, fallback to text: ${err instanceof Error ? err.message : String(err)}`);
         }
       }
       await this.sender.sendMarkdown(record.replyTarget, formatQuestion(question, hint, false));
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      this.logger.error(`im-qqbot: question send failed key=${record.sessionKey}: ${msg}`);
+      this.logger.error(`dsh-qqbot: question send failed key=${record.sessionKey}: ${msg}`);
       throw new Error(`failed to deliver question to QQ: ${msg}`);
     }
   }

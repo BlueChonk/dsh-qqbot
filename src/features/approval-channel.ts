@@ -128,7 +128,7 @@ export class ApprovalChannel {
       hasApproval = false;
     }
     if (!hasApproval) {
-      this.logger.debug('im-qqbot: approval service unavailable — approval channel disabled');
+      this.logger.debug('dsh-qqbot: approval service unavailable — approval channel disabled');
       return;
     }
 
@@ -140,7 +140,7 @@ export class ApprovalChannel {
       if (record) return self.park(record, request);
       return nextFn();
     }, { prepend: true });
-    this.logger.info('im-qqbot: QQ approval channel installed');
+    this.logger.info('dsh-qqbot: QQ approval channel installed');
   }
 
   /** 会话回收时清理其 pending 审批，避免 Promise 悬挂 */
@@ -188,7 +188,7 @@ export class ApprovalChannel {
       );
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      this.logger.error(`im-qqbot: approval send failed key=${key}: ${msg}`);
+      this.logger.error(`dsh-qqbot: approval send failed key=${key}: ${msg}`);
       return 'unavailable'; // 无法呈现审批，fail-closed
     }
 
@@ -204,7 +204,7 @@ export class ApprovalChannel {
         request.signal.addEventListener('abort', onAbort, { once: true });
       }
       this.pending.set(key, entry);
-      this.logger.info(`im-qqbot: approval sent to QQ, waiting for decision key=${key}`);
+      this.logger.info(`dsh-qqbot: approval sent to QQ, waiting for decision key=${key}`);
     });
   }
 

@@ -129,7 +129,7 @@ export async function bootstrapGateway(
   });
 
   bot.on('ready', () => {
-    logger.info(`[im-qqbot] Bot ready! appId=${config.appId}`);
+    console.log(`[dsh-qqbot] Bot ready! appId=${config.appId}`);
   });
 
   // ── 富媒体过期清理 ──
@@ -155,7 +155,7 @@ export async function bootstrapGateway(
   // ── 生命周期 ──
   (ctx as unknown as { effect(fn: () => (() => Promise<void>) | void, name?: string): void })
     .effect(() => {
-      logger.info(`Starting bot (appId=${config.appId})`);
+      console.log(`Starting bot (appId=${config.appId})`);
       bot.start().catch((err: unknown) => {
         logger.error(`Bot start failed: ${err instanceof Error ? err.message : String(err)}`);
       });
@@ -165,5 +165,5 @@ export async function bootstrapGateway(
         await manager.disposeAll();
         bot.stop();
       };
-    }, 'im-qqbot.lifecycle');
+    }, 'dsh-qqbot.lifecycle');
 }
